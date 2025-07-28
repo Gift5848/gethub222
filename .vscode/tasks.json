@@ -1,0 +1,13 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Fullstack Build and Start (Production)",
+			"type": "shell",
+			"command": "cd frontend; npm install; npm run build; cd ../backend; npm install; $env:NODE_ENV='production'; npm start",
+			"group": "build",
+			"isBackground": false,
+			"problemMatcher": []
+		}
+	]
+}
