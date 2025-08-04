@@ -6,8 +6,8 @@ const ShopRequest = require('../models/shopRequest');
 
 // Register a new user (with optional role)
 exports.register = async (req, res) => {
-    const { username, email, password, role } = req.body;
-    if (!username || !email || !password) {
+    const { username, email, password, role, phone } = req.body;
+    if (!username || !email || !password || !phone) {
         return res.status(400).json({ message: 'All fields are required.' });
     }
     // Only block subadmin/seller creation from this endpoint
@@ -17,11 +17,12 @@ exports.register = async (req, res) => {
     try {
         const existingUser = await User.findOne({ $or: [{ email }, { username }] });
         if (existingUser) {
-            return res.status(400).json({ message: 'Username or email already exists.' });
+            let field = existingUser.username === username ? 'Username' : 'Email';
+            return res.status(400).json({ message: `${field} already exists.` });
         }
         const hashedPassword = await bcrypt.hash(password, 10);
-        // Only set fields needed for buyers
-        const newUser = new User({ username, email, password: hashedPassword, role: 'user' });
+        // Save phone for all users
+        const newUser = new User({ username, email, password: hashedPassword, role: 'user', phone });
         await newUser.save();
         res.status(201).json({ message: 'User registered successfully' });
     } catch (error) {
@@ -39,6 +40,12 @@ exports.login = async (req, res) => {
         const user = await User.findOne({ email });
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
+        }
+        // Debug: log user status and role
+        console.log('LOGIN ATTEMPT:', { email, role: user.role, approved: user.approved, active: user.active });
+        // Block subadmin login if not approved or not active
+        if (user.role === 'subadmin' && (!user.active || !user.approved)) {
+            return res.status(403).json({ message: 'Your account is under review. Please wait for admin approval.' });
         }
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
@@ -96,7 +103,8 @@ exports.createSubAdmin = async (req, res) => {
     try {
         const existingUser = await User.findOne({ $or: [{ email }, { username }] });
         if (existingUser) {
-            return res.status(400).json({ message: 'Username or email already exists.' });
+            let field = existingUser.username === username ? 'Username' : 'Email';
+            return res.status(400).json({ message: `${field} already exists.` });
         }
         const hashedPassword = await bcrypt.hash(password, 10);
         const newUser = new User({ username, email, password: hashedPassword, role: 'subadmin' });
@@ -127,11 +135,13 @@ async function generateSellerId(shopId) {
     // Find all sellers in this shop
     const sellers = await User.find({ shopId, role: 'seller' }, 'sellerId');
     let max = 0;
+    // Match sellerId in format: <shopId>-seN
     sellers.forEach(s => {
-        const match = /^se(\d+)$/.exec(s.sellerId);
+        const regex = new RegExp(`^${shopId}-se(\\d+)$`);
+        const match = regex.exec(s.sellerId);
         if (match) max = Math.max(max, parseInt(match[1], 10));
     });
-    return `se${max + 1}`;
+    return `${shopId}-se${max + 1}`;
 }
 
 // List sellers for subadmin (only their own sellers in their shop)
@@ -172,24 +182,29 @@ exports.createSellerForSubadmin = async (req, res) => {
         if (role && role !== 'seller') {
             return res.status(403).json({ message: 'Subadmin can only create sellers.' });
         }
-        const existingUser = await User.findOne({ $or: [{ email }, { username }] });
-        if (existingUser) {
-            return res.status(400).json({ message: 'Username or email already exists.' });
-        }
-        // Enforce privilege inheritance
+        // Allow same email in different shops (per-shop uniqueness)
         const subadmin = await User.findById(req.user.id);
+        const shopId = subadmin.shopId;
+        const existingUser = await User.findOne({ email, shopId, role: 'seller' });
+        if (existingUser) {
+            return res.status(400).json({ message: 'Email already exists for this shop.' });
+        }
         let filteredPrivileges = privileges;
         if (subadmin && subadmin.privileges) {
             filteredPrivileges = filterSellerPrivileges(subadmin.privileges, privileges || {});
         }
         // Assign shopId and unique sellerId
-        const shopId = subadmin.shopId;
         const sellerId = await generateSellerId(shopId);
         const hashedPassword = await bcrypt.hash(password, 10);
         const newUser = new User({ username, email, password: hashedPassword, role: 'seller', owner: req.user.id, privileges: filteredPrivileges, shopId, sellerId });
         await newUser.save();
         res.status(201).json({ message: 'Seller created successfully', user: newUser });
     } catch (error) {
+        // Handle duplicate key error for unique index
+        if (error.code === 11000) {
+            const field = Object.keys(error.keyValue)[0];
+            return res.status(400).json({ message: `${field.charAt(0).toUpperCase() + field.slice(1)} already exists.` });
+        }
         res.status(500).json({ message: error.message || 'Error creating seller', error });
     }
 };

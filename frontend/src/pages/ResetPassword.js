@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { useParams, useHistory } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 const API_BASE = '/api'; // Use static fallback, do not use process.env in frontend
 
 const ResetPassword = () => {
   const { token } = useParams();
-  const history = useHistory(); // useHistory for navigation
+  const navigate = useNavigate(); // useNavigate for navigation
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -28,7 +28,7 @@ const ResetPassword = () => {
     try {
       const res = await axios.post(`${API_BASE}/auth/reset-password`, { token, password });
       setMsg('Password reset successful! You can now log in.');
-      setTimeout(() => history.push('/subadmin'), 1800); // useHistory push
+      setTimeout(() => navigate('/subadmin'), 1800); // useNavigate push
     } catch (err) {
       setMsg(err.response?.data?.message || 'Error resetting password.');
     }

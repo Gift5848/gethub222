@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import Footer from '../components/Footer';
 import ProductList from '../components/ProductList';
 import Cart from '../components/Cart';
-import Checkout from '../components/Checkout';
 import SearchBar from '../components/SearchBar';
 import '../pages/styles/main.css';
 

@@ -10,7 +10,9 @@ const messageSchema = new mongoose.Schema({
     name: { type: String },
     type: { type: String }
   },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
+  read: { type: Boolean, default: false }, // Track if the message has been read by the recipient
+  delivered: { type: Boolean, default: false } // Track if the message has been delivered to recipient
 });
 
 module.exports = mongoose.model('Message', messageSchema);

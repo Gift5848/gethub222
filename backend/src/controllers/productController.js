@@ -36,8 +36,10 @@ exports.getProducts = async (req, res) => {
 // Get single product by ID
 exports.getProductById = async (req, res) => {
     try {
-        // Populate owner with phone number
-        const product = await Product.findById(req.params.id).populate('owner', 'username email phone');
+        // Populate owner and seller with username/email/phone
+        const product = await Product.findById(req.params.id)
+            .populate('owner', 'username email phone')
+            .populate('seller', 'username email phone');
         if (!product) return res.status(404).json({ error: 'Product not found' });
         // --- Seller: only see their own products ---
         if (req.user && req.user.role === 'user' && (String(product.owner._id) !== String(req.user._id) || product.shopId !== req.user.shopId)) {
@@ -47,12 +49,12 @@ exports.getProductById = async (req, res) => {
         if (req.user && req.user.role === 'subadmin' && product.shopId !== req.user.shopId) {
             return res.status(403).json({ error: 'Not authorized to view this product' });
         }
-        // Return product and seller phone
+        // Return product, seller, and owner info
         res.json({
             ...product.toObject(),
-            sellerPhone: product.owner?.phone || '',
-            sellerName: product.owner?.username || '',
-            sellerEmail: product.owner?.email || ''
+            sellerPhone: product.seller?.phone || product.owner?.phone || '',
+            sellerName: product.seller?.username || product.owner?.username || '',
+            sellerEmail: product.seller?.email || product.owner?.email || ''
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -80,11 +82,10 @@ exports.createProduct = async (req, res) => {
         }
         // Always set shopId and managerId from the authenticated user
         productData.owner = req.user._id;
-        // Always fetch the seller from DB to get the latest shopId
+        // Always fetch the seller from DB to get the latest shopId and sellerId
         const sellerUser = await User.findById(req.user._id);
-        console.log('DEBUG sellerUser:', sellerUser);
-        console.log('DEBUG sellerUser.shopId:', sellerUser ? sellerUser.shopId : undefined);
         productData.shopId = sellerUser && sellerUser.shopId ? sellerUser.shopId : undefined;
+        productData.sellerId = sellerUser && sellerUser.sellerId ? sellerUser.sellerId : undefined; // Ensure sellerId is set
         productData.managerId = req.user.role === 'subadmin' ? req.user.managerId || req.user._id : req.user._id;
         // Set ownerRole for conditional shopId validation
         if (req.user && req.user.role) {
@@ -140,6 +141,15 @@ exports.updateProduct = async (req, res) => {
         product.shopId = product.shopId;
         product.managerId = product.managerId;
         product.owner = product.owner;
+        // --- Only allow updating sellerId/shopId if admin ---
+        if (req.user && req.user.role !== 'admin') {
+            // Always keep sellerId and shopId in sync with the seller user
+            const sellerUser = await User.findById(product.owner);
+            if (sellerUser) {
+                product.sellerId = sellerUser.sellerId;
+                product.shopId = sellerUser.shopId;
+            }
+        }
         // If stock changed, log it
         if (typeof req.body.stock !== 'undefined' && req.body.stock !== oldStock) {
             product.stockHistory = product.stockHistory || [];

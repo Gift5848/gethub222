@@ -25,12 +25,20 @@ router.get('/me', auth, async (req, res) => {
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 
+// Protect all /subadmin* routes with requireSubadmin middleware
+router.use('/subadmin', auth, requireSubadmin);
+
+// Protect the subadmin dashboard root route
+router.get('/subadmin', auth, requireSubadmin, (req, res) => {
+  res.json({ message: 'Subadmin dashboard access granted.' });
+});
+
 // Subadmin seller management
-router.get('/subadmin/sellers', auth, requireSubadmin, listSellersForSubadmin);
-router.post('/subadmin/sellers', auth, requireSubadmin, createSellerForSubadmin);
-router.put('/subadmin/sellers/:id', auth, requireSubadmin, updateSellerForSubadmin);
-router.delete('/subadmin/sellers/:id', auth, requireSubadmin, deleteSellerForSubadmin);
-router.post('/subadmin/sellers/:id/reset-password', auth, requireSubadmin, resetSellerPasswordForSubadmin);
-router.post('/subadmin/sellers/:id/toggle-status', auth, requireSubadmin, toggleSellerStatusForSubadmin);
+router.get('/subadmin/sellers', listSellersForSubadmin); // already protected above
+router.post('/subadmin/sellers', createSellerForSubadmin); // already protected above
+router.put('/subadmin/sellers/:id', updateSellerForSubadmin); // already protected above
+router.delete('/subadmin/sellers/:id', deleteSellerForSubadmin); // already protected above
+router.post('/subadmin/sellers/:id/reset-password', resetSellerPasswordForSubadmin); // already protected above
+router.post('/subadmin/sellers/:id/toggle-status', toggleSellerStatusForSubadmin); // already protected above
 
 module.exports = router;

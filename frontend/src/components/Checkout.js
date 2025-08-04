@@ -1,45 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { placeOrder } from '../api/orderApi';
 
 const Checkout = () => {
-  const [cart] = useState(JSON.parse(localStorage.getItem('cart')) || []);
+  const user = JSON.parse(localStorage.getItem('user'));
+  const userId = user?._id || 'guest';
+  const cartKey = `cart_${userId}`;
+  const [cart, setCart] = useState([]);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
+  // Always load latest cart from localStorage for this user
+  useEffect(() => {
+    setCart(JSON.parse(localStorage.getItem(cartKey)) || []);
+  }, [cartKey]);
 
   const handleCheckout = async () => {
     setLoading(true);
     setMessage('');
     try {
       const token = localStorage.getItem('token');
-      // Fetch product details for each cart item
-      const productDetails = await Promise.all(cart.map(async item => {
-        const res = await fetch(`http://localhost:5000/api/products/${item._id}`);
-        return await res.json();
-      }));
-      // Prepare order data for backend
-      const seller = productDetails[0]?.owner?._id || productDetails[0]?.owner || '';
-      const shopId = productDetails[0]?.shopId || '';
-      if (!seller || !shopId) {
-        setMessage(`Order failed: Missing required field(s). seller: ${seller}, shopId: ${shopId}`);
+      const user = JSON.parse(localStorage.getItem('user'));
+      const seller = cart[0]?.sellerId || cart[0]?.seller || '';
+      if (!user?._id || !seller) {
+        setMessage(`Order failed: Missing required field(s). seller: ${seller}, buyer: ${user?._id}`);
         setLoading(false);
         return;
       }
-      const orderData = {
-        products: cart.map((item, idx) => ({
-          product: item._id,
-          quantity: item.quantity || 1,
-          price: item.price
-        })),
-        total: cart.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0),
+      const res = await placeOrder({
+        cart,
+        buyer: user._id,
         seller,
-        shopId
-      };
-      console.log('Order payload:', orderData);
-      const res = await placeOrder(orderData, token);
-      localStorage.removeItem('cart');
+        token
+      });
+      localStorage.removeItem(cartKey); // Remove correct cart key
+      setCart([]); // Clear cart state after order
       setMessage('Order placed successfully!');
+      // Redirect to confirmation page with order details
+      navigate('/order-confirmation', { state: { order: res.data } });
     } catch (err) {
-      setMessage('Order failed: ' + (err.response?.data?.error || err.message));
+      setMessage('Order failed: ' + (err.response?.data?.message || err.message));
     }
     setLoading(false);
   };

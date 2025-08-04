@@ -18,7 +18,7 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['user', 'admin', 'subadmin', 'seller'], // Added 'seller' role
+        enum: ['user', 'admin', 'subadmin', 'seller', 'delivery'], // Added 'delivery' role
         default: 'user',
     },
     owner: {
@@ -29,18 +29,20 @@ const userSchema = new mongoose.Schema({
     shopId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'ShopRequest',
-        required: function() { return this.role === 'seller' || this.role === 'subadmin'; } // required for seller and subadmin
+        required: function() { return this.role === 'seller'; } // Only required for seller
     },
-    // Ensure every user (buyer) has a unique _id (MongoDB default)
-    // Seller must have unique sellerId and required shopId
     sellerId: {
         type: String,
-        required: function() { return this.role === 'seller'; },
-        unique: true // globally unique for sellers
+        required: function() { return this.role === 'seller'; }, // Only required for seller
+        unique: false // unique per shop, not globally
     },
     active: {
         type: Boolean,
         default: true,
+    },
+    approved: {
+        type: Boolean,
+        default: false,
     },
     privileges: {
         type: Object,
@@ -65,10 +67,10 @@ const userSchema = new mongoose.Schema({
         default: 0,
     },
     wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }],
-    cart: [{
-        product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
-        quantity: { type: Number, default: 1 }
-    }],
+    phone: {
+        type: String,
+        required: true,
+    },
 }, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);

@@ -12,7 +12,7 @@ const models = {
 const years = Array.from({ length: 25 }, (_, i) => 2025 - i);
 const categories = ['Engine Parts', 'Brake System', 'Cooling System', 'Lighting', 'Others'];
 
-const ProductForm = ({ onProductAdded, user }) => {
+const ProductForm = ({ onProductAdded, user, isModal }) => {
   const [form, setForm] = useState({
     name: '',
     description: '',
@@ -157,8 +157,34 @@ const ProductForm = ({ onProductAdded, user }) => {
     handleSubmit(e);
   };
 
+  // Use a white card only if in modal mode, otherwise keep previous style
+  const cardStyle = isModal ? {
+    width: 400,
+    maxWidth: '95vw',
+    background: '#fff',
+    borderRadius: 18,
+    boxShadow: '0 4px 24px #dbeafe',
+    padding: '2.5rem 2rem 2rem 2rem',
+    fontFamily: 'Segoe UI, Poppins, Arial, sans-serif',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+  } : {
+    background: '#fff',
+    borderRadius: 12,
+    boxShadow: '0 2px 12px #23294622',
+    padding: 24,
+    color: '#232946',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12,
+    maxWidth: 500,
+    margin: '0 auto',
+    marginTop: 32,
+  };
+
   return (
-    <div style={{ width: '100%', maxWidth: 500, minWidth: 280, margin: '0 auto', background: '#fff', borderRadius: 16, boxShadow: '0 4px 24px rgba(44,62,80,0.10)', padding: '2rem 1.2rem 1.2rem 1.2rem', fontFamily: 'Poppins, Arial, sans-serif', position: 'relative', minHeight: 400, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', maxHeight: '70vh', overflowY: 'auto' }}>
+    <div style={cardStyle}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',width:'100%',maxWidth:400,marginBottom:18}}>
         <h2 style={{ textAlign: 'left', color: '#222', fontWeight: 700, fontSize: '1.5rem', letterSpacing: 0.5, margin: 0 }}>Add New Product</h2>
         {user?.role === 'user' && <div style={{fontWeight:600, color:'#3a6cf6', fontSize:16}}>Free posts left: {freePostsLeft > 0 ? freePostsLeft : 0} / 3</div>}

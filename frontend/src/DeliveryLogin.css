@@ -1,0 +1,73 @@
+/* Delivery Login Page Styles */
+.delivery-login-bg {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #263159 0%, #00b894 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.delivery-login-card {
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 4px 32px #26315933;
+  padding: 2.5rem 2rem 2rem 2rem;
+  max-width: 350px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.delivery-login-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #00b894;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.delivery-login-form input {
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid #dbeafe;
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  outline: none;
+  transition: border 0.2s, box-shadow 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.delivery-login-form input:focus {
+  border: 1.5px solid #00b894;
+  box-shadow: 0 0 0 2px #00b89433;
+}
+
+.delivery-login-form button {
+  background: #00b894;
+  color: #fff;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 0;
+  font-size: 1.1rem;
+  cursor: pointer;
+  margin-top: 0.5rem;
+  transition: background 0.2s;
+  width: 100%;
+}
+
+.delivery-login-form button:hover {
+  background: #263159;
+}
+
+.delivery-login-error {
+  color: #e74c3c;
+  background: #fff0f0;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 1rem;
+  text-align: center;
+  font-size: 1rem;
+}

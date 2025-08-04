@@ -13,7 +13,9 @@ import {
 } from 'chart.js';
 import '../styles/admin.css';
 import '../pages/styles/main.css';
+import '../AdminLogin.css';
 import { FaHome, FaBoxOpen, FaUsers, FaChartBar, FaFileAlt, FaRegBell, FaCog, FaRegCommentDots, FaRegListAlt } from 'react-icons/fa';
+import { io } from 'socket.io-client';
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
 
 const API_BASE = `http://${window.location.hostname}:5000/api`;
@@ -25,14 +27,23 @@ const AdminPage = () => {
   const [users, setUsers] = useState([]);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: '', price: '', category: '', image: '', description: '' });
-  const [userForm, setUserForm] = useState({ username: '', email: '', password: '', role: 'subadmin' });
+  const [userForm, setUserForm] = useState({ username: '', email: '', password: '', phone: '', role: 'subadmin' });
   const [message, setMessage] = useState('');
   const [auth, setAuth] = useState(false);
-  const [login, setLogin] = useState({ username: '', password: '' });
+  const [login, setLogin] = useState({ email: '', password: '' });
   const [loginError, setLoginError] = useState('');
   const [token, setToken] = useState('');
   const [productSearch, setProductSearch] = useState("");
   const [userSearch, setUserSearch] = useState("");
+  // --- User filter state for role and approval status ---
+  const [userRoleFilter, setUserRoleFilter] = useState('');
+  const [userApprovalFilter, setUserApprovalFilter] = useState('');
+  // --- Product filter state for category and stock status ---
+  const [productCategoryFilter, setProductCategoryFilter] = useState('');
+  const [productStockFilter, setProductStockFilter] = useState('');
+  // --- Product filter state for shop and seller ---
+  const [productShopFilter, setProductShopFilter] = useState('');
+  const [productSellerFilter, setProductSellerFilter] = useState('');
   const [darkMode, setDarkMode] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [editUserForm, setEditUserForm] = useState({ username: '', email: '', role: 'subadmin', password: '' });
@@ -283,6 +294,9 @@ const AdminPage = () => {
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState('');
   const [viewingOrder, setViewingOrder] = useState(null);
+  const [orderViewType, setOrderViewType] = useState('table');
+  const [orderStatusFilter, setOrderStatusFilter] = useState('all');
+  const [orderSortOrder, setOrderSortOrder] = useState('desc'); // 'desc' for newest first
 
   const fetchOrders = async () => {
     setOrdersLoading(true);
@@ -294,6 +308,164 @@ const AdminPage = () => {
       setOrdersError('Failed to fetch orders');
     }
     setOrdersLoading(false);
+  };
+
+  // --- Order Delivery Progress Table (Admin View) ---
+  const renderOrderProgress = (order) => {
+    // These fields should exist in the order object from backend
+    // status: 'pending' | 'accepted' | 'picked_up' | 'in_transit' | 'delivered'
+    // shopHandover, deliveryReceived, buyerReceived, deliveryConfirmed: boolean
+    // --- Use a stepper/progress bar for clarity ---
+    const steps = [
+      { key: 'accepted', label: 'Accepted' },
+      { key: 'handedover', label: 'Shop Handover' },
+      { key: 'deliveryreceived', label: 'Delivery Received' },
+      { key: 'buyerreceived', label: 'Buyer Received' },
+      { key: 'delivered', label: 'Delivered' },
+    ];
+    // Support both legacy boolean fields and new status string
+    let currentStep = 0;
+    if (order.status === 'delivered') currentStep = 4;
+    else if (order.buyerReceived || order.status === 'buyerreceived') currentStep = 3;
+    else if (order.deliveryReceived || order.status === 'deliveryreceived') currentStep = 2;
+    else if (order.shopHandover || order.status === 'handedover') currentStep = 1;
+    else if (order.status === 'accepted' || order.status === 'picked_up' || order.status === 'in_transit') currentStep = 0;
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {steps.map((step, idx) => (
+          <React.Fragment key={step.key}>
+            <div style={{
+              width: 18, height: 18, borderRadius: '50%',
+              background: idx <= currentStep ? '#00b894' : '#dfe6e9',
+              color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700
+            }}>{idx + 1}</div>
+            {idx < steps.length - 1 && <div style={{ width: 32, height: 4, background: idx < currentStep ? '#00b894' : '#dfe6e9' }} />}
+          </React.Fragment>
+        ))}
+        <span style={{ marginLeft: 12, fontWeight: 600 }}>{steps[currentStep]?.label || 'Pending'}</span>
+      </div>
+    );
+  };
+
+  // --- Orders Table in Admin UI ---
+  const OrdersSection = () => {
+    let filteredOrders = orders;
+    if (orderStatusFilter !== 'all') {
+      filteredOrders = filteredOrders.filter(order => order.status === orderStatusFilter);
+    }
+    filteredOrders = [...filteredOrders].sort((a, b) => {
+      // Put unapproved/pending orders at the top
+      const statusOrder = (order) => {
+        if (order.status === 'pending' || order.status === 'unapproved') return 0;
+        return 1;
+      };
+      if (statusOrder(a) !== statusOrder(b)) {
+        return statusOrder(a) - statusOrder(b);
+      }
+      // If same group, sort by createdAt
+      const dateA = new Date(a.createdAt || 0);
+      const dateB = new Date(b.createdAt || 0);
+      return orderSortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+    });
+    return (
+      <div style={{ margin: '2rem 0' }}>
+        <h2>Orders Delivery Progress</h2>
+        <div style={{display:'flex',gap:16,alignItems:'center',marginBottom:16}}>
+          <label>Status:
+            <select value={orderStatusFilter} onChange={e => setOrderStatusFilter(e.target.value)} style={{marginLeft:8}}>
+              <option value="all">All</option>
+              <option value="pending">Pending</option>
+              <option value="accepted">Accepted</option>
+              <option value="handedover">Handed Over</option>
+              <option value="deliveryreceived">Delivery Received</option>
+              <option value="buyerreceived">Buyer Received</option>
+              <option value="delivered">Delivered</option>
+            </select>
+          </label>
+          <label>Sort by:
+            <select value={orderSortOrder} onChange={e => setOrderSortOrder(e.target.value)} style={{marginLeft:8}}>
+              <option value="desc">Newest First</option>
+              <option value="asc">Oldest First</option>
+            </select>
+          </label>
+        </div>
+        {ordersLoading ? <div>Loading orders...</div> : ordersError ? <div style={{ color: 'red' }}>{ordersError}</div> : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 12 }}>
+            <thead>
+              <tr style={{ background: '#f7f7f7' }}>
+                <th style={{ border: '1px solid #ddd', padding: 8 }}>Order ID</th>
+                <th style={{ border: '1px solid #ddd', padding: 8 }}>Buyer</th>
+                <th style={{ border: '1px solid #ddd', padding: 8 }}>Shop</th>
+                <th style={{ border: '1px solid #ddd', padding: 8 }}>Delivery Person</th>
+                <th style={{ border: '1px solid #ddd', padding: 8 }}>Progress</th>
+                <th style={{ border: '1px solid #ddd', padding: 8 }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredOrders.map(order => (
+                <tr key={order._id}>
+                  <td style={{ border: '1px solid #ddd', padding: 8 }}>{order._id}</td>
+                  <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                    {(() => {
+                      const b = order.buyer;
+                      if (typeof order.buyerName === 'string') return order.buyerName;
+                      if (typeof order.buyerId === 'string') return order.buyerId;
+                      if (b && typeof b === 'object') {
+                        if (typeof b.name === 'string') return b.name;
+                        if (typeof b.username === 'string') return b.username;
+                        if (typeof b.email === 'string') return b.email;
+                        return '[object]';
+                      }
+                      if (typeof b === 'string') return b;
+                      return 'N/A';
+                    })()
+                  }</td>
+                  <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                    {(() => {
+                      const s = order.shop;
+                      if (typeof s === 'object' && s !== null) {
+                        if (typeof s.shopName === 'string') return s.shopName;
+                        if (typeof s.name === 'string') return s.name;
+                        if (typeof s._id === 'string') return s._id;
+                        return '[object]';
+                      }
+                      if (typeof order.shopName === 'string') return order.shopName;
+                      if (typeof order.shopId === 'string') return order.shopId;
+                      if (typeof s === 'string') return s;
+                      return 'N/A';
+                    })()
+                  }</td>
+                  <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                    {(() => {
+                      const d = order.deliveryPerson;
+                      if (typeof order.deliveryPersonName === 'string') return order.deliveryPersonName;
+                      if (typeof order.deliveryPersonId === 'string') return order.deliveryPersonId;
+                      if (d && typeof d === 'object') {
+                        if (typeof d.name === 'string') return d.name;
+                        if (typeof d.username === 'string') return d.username;
+                        if (typeof d.email === 'string') return d.email;
+                        return '[object]';
+                      }
+                      if (typeof d === 'string') return d;
+                      return 'N/A';
+                    })()
+                  }</td>
+                  <td style={{ border: '1px solid #ddd', padding: 8 }}>{renderOrderProgress(order)}</td>
+                  <td style={{ border: '1px solid #ddd', padding: 8 }}>
+                    <button onClick={() => setViewingOrder(order)} style={{background:'#2980b9',color:'#fff',border:'none',borderRadius:4,padding:'4px 10px',cursor:'pointer',marginRight:6}}>View</button>
+                    {order.receiptUrl && (
+                      <a href={order.receiptUrl.startsWith('http') ? order.receiptUrl : `http://localhost:5000${order.receiptUrl}`} target="_blank" rel="noopener noreferrer">
+                        <button style={{background:'#27ae60',color:'#fff',border:'none',borderRadius:4,padding:'4px 10px',cursor:'pointer'}}>View Receipt</button>
+                      </a>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    );
   };
 
   useEffect(() => {
@@ -435,6 +607,10 @@ const AdminPage = () => {
   };
   const handleUserSubmit = async e => {
     e.preventDefault();
+    if (!userForm.phone) {
+      setMessage('Phone is required.');
+      return;
+    }
     try {
       let submitData = { ...userForm };
       // Assign a unique id to every subadmin (shop manager) if role is subadmin
@@ -460,7 +636,7 @@ const AdminPage = () => {
         await axios.post(`${API_BASE}/auth/register`, userForm, { headers: { Authorization: `Bearer ${token}` } });
         setMessage('User created!');
       }
-      setUserForm({ username: '', email: '', password: '', role: 'subadmin' });
+      setUserForm({ username: '', email: '', password: '', phone: '', role: 'subadmin' });
       fetchUsers();
     } catch (err) {
       setMessage('Error creating user: ' + (err.response?.data?.message || err.message));
@@ -474,6 +650,26 @@ const AdminPage = () => {
       fetchUsers();
     } catch (err) {
       setMessage('Error deleting user: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  // --- Delivery Person Creation State ---
+  const [deliveryForm, setDeliveryForm] = useState({ username: '', email: '', password: '' });
+  const [deliveryMsg, setDeliveryMsg] = useState('');
+  const handleDeliveryChange = e => {
+    const { name, value } = e.target;
+    setDeliveryForm(f => ({ ...f, [name]: value }));
+  };
+  const handleDeliverySubmit = async e => {
+    e.preventDefault();
+    setDeliveryMsg('');
+    try {
+      const res = await axios.post(`${API_BASE}/admin/create-delivery`, deliveryForm, { headers: { Authorization: `Bearer ${token}` } });
+      setDeliveryMsg('Delivery person created!');
+      setDeliveryForm({ username: '', email: '', password: '' });
+      fetchUsers();
+    } catch (err) {
+      setDeliveryMsg('Error: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -606,7 +802,7 @@ const handleLogin = async e => {
     if (loginRole === 'seller') {
       endpoint = `${API_BASE}/auth/subadmin/login`;
     }
-    const res = await axios.post(endpoint, { email: login.username, password: login.password });
+    const res = await axios.post(endpoint, { email: login.email, password: login.password });
     setToken(res.data.token);
     localStorage.setItem('token', res.data.token);
     // Decode token to get role and user info
@@ -632,19 +828,41 @@ const handleLogin = async e => {
   // If not authenticated, show login form
   if (!auth) {
     return (
-      <div className="admin-login-wrapper">
-        <form className="admin-login-form" onSubmit={handleLogin}>
-          <h2>Admin Login</h2>
-          <input name="username" value={login.username} onChange={handleLoginChange} placeholder="Username or Email" required />
-          <input name="password" type="password" value={login.password} onChange={handleLoginChange} placeholder="Password" required />
-          <select name="role" value={loginRole} onChange={e => setLoginRole(e.target.value)} style={{marginBottom: 12}}>
-            <option value="admin">Admin</option>
-            <option value="subadmin">Subadmin</option>
-            <option value="seller">Seller</option>
-          </select>
-          <button type="submit">Login</button>
-          {loginError && <div className="login-error">{loginError}</div>}
-        </form>
+      <div className="admin-login-bg">
+        <div className="admin-login-card">
+          <div className="admin-login-title">Admin Login</div>
+          <form className="admin-login-form" onSubmit={handleLogin} style={{display: 'flex', flexDirection: 'column', gap: 14}}>
+            {loginError && <div className="admin-login-error">{loginError}</div>}
+            <input
+              type="email"
+              name="email"
+              placeholder="Email"
+              value={login.email}
+              onChange={e => setLogin(l => ({ ...l, email: e.target.value }))}
+              required
+              style={{width: '100%', boxSizing: 'border-box'}}
+            />
+            <input
+              type="password"
+              name="password"
+              placeholder="Password"
+              value={login.password}
+              onChange={e => setLogin(l => ({ ...l, password: e.target.value }))}
+              required
+              style={{width: '100%', boxSizing: 'border-box'}}
+            />
+            <select
+              value={loginRole}
+              onChange={e => setLoginRole(e.target.value)}
+              style={{marginBottom: '1rem', width: '100%', boxSizing: 'border-box'}}
+            >
+              <option value="admin">Admin</option>
+              <option value="subadmin">Sub-Admin</option>
+              <option value="seller">Seller</option>
+            </select>
+            <button type="submit" style={{width: '100%', padding: '12px 0', fontSize: '1.1rem'}}>Login</button>
+          </form>
+        </div>
       </div>
     );
   }
@@ -682,16 +900,31 @@ const handleEditUser = user => {
   setEditUserForm({ username: user.username, email: user.email, role: user.role, password: '' });
 };
   // --- Pagination helpers ---
-const paginatedProducts = products
-  .filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()))
-  .slice((productPage - 1) * productsPerPage, productPage * productsPerPage);
-const totalProductPages = Math.max(1, Math.ceil(products.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase())).length / productsPerPage));
+const filteredProducts = products.filter(p => {
+  const matchesName = p.name && p.name.toLowerCase().includes(productSearch.toLowerCase());
+  const matchesCategory = productCategoryFilter ? (p.category || 'Uncategorized') === productCategoryFilter : true;
+  let matchesStock = true;
+  if (productStockFilter === 'in_stock') matchesStock = Number(p.stock) > 5;
+  else if (productStockFilter === 'low_stock') matchesStock = Number(p.stock) > 0 && Number(p.stock) <= 5;
+  else if (productStockFilter === 'out_of_stock') matchesStock = Number(p.stock) === 0;
+  // Shop filter: match by managerId or shopId (string or objectId)
+  const matchesShop = productShopFilter ? (
+    (p.managerId && String(p.managerId) === productShopFilter) ||
+    (p.shopId && String(p.shopId) === productShopFilter)
+  ) : true;
+  // Seller filter: match by sellerId (string or objectId)
+  const matchesSeller = productSellerFilter ? (
+    (p.sellerId && String(p.sellerId) === productSellerFilter)
+  ) : true;
+  return matchesName && matchesCategory && matchesStock && matchesShop && matchesSeller;
+});
+const paginatedProducts = filteredProducts.slice((productPage - 1) * productsPerPage, productPage * productsPerPage);
+const totalProductPages = Math.max(1, Math.ceil(filteredProducts.length / productsPerPage));
 const filteredUsers = users.filter(u => {
-  if (u.role === 'subadmin') {
-    return u.active === true && u.username.toLowerCase().includes(userSearch.toLowerCase());
-  }
-  // Show all other roles (seller, admin, etc.)
-  return u.username.toLowerCase().includes(userSearch.toLowerCase());
+  const matchesName = u.username.toLowerCase().includes(userSearch.toLowerCase());
+  const matchesRole = userRoleFilter ? u.role === userRoleFilter : true;
+  const matchesApproval = userApprovalFilter ? ((userApprovalFilter === 'approved' && u.approved) || (userApprovalFilter === 'not_approved' && !u.approved)) : true;
+  return matchesName && matchesRole && matchesApproval;
 });
   // DEBUG: Render check
   // console.log('AdminPage render', { auth, token, login, loginError });
@@ -717,37 +950,47 @@ function getUserNameByUniqueId(uniqueId) {
   return user ? user.username : '-';
 }
 function getShopNameById(shopId) {
-  // Try to find a subadmin/shop by uniqueId or _id
-  const user = users.find(u => (u.uniqueId === shopId || u._id === shopId) && u.role === 'subadmin');
-  return user ? user.username : '-';
+  if (!shopId) return 'Shop missing';
+  // Debug: log all subadmin IDs and the shopId being searched
+  if (typeof window !== 'undefined' && window.console) {
+    const subadmins = users.filter(u => u.role === 'subadmin');
+    console.log('[DEBUG] getShopNameById:', { shopId, subadminIds: subadmins.map(u => u._id), subadmins });
+  }
+  // Match by _id for subadmin/shop
+  const user = users.find(u => String(u._id) === String(shopId) && u.role === 'subadmin');
+  if (user) return user.username + (user.email ? ` (${user.email})` : '');
+  return 'Shop data missing';
 }
 function getSellerNameById(sellerId) {
-  // Try to find a seller by uniqueId or _id
-  const user = users.find(u => (u.uniqueId === sellerId || u._id === sellerId) && u.role === 'seller');
-  return user ? user.username : '-';
+  if (!sellerId) return 'Seller missing';
+  // Match by sellerId field
+  const user = users.find(u => u.sellerId === sellerId && u.role === 'seller');
+  if (user) return user.username + (user.email ? ` (${user.email})` : '');
+  return 'Seller data missing';
 }
 // New: Get shop (subadmin) name for a product, even if posted by seller
 function getShopNameForProduct(product) {
+  // If shopId is populated as an object with shopName, use it
+  if (product.shopId && typeof product.shopId === 'object' && product.shopId.shopName) {
+    return product.shopId.shopName;
+  }
   if (product.sellerId) {
-    const seller = users.find(u => (u.uniqueId === product.sellerId || u._id === product.sellerId) && u.role === 'seller');
+    const seller = users.find(u => u.sellerId === product.sellerId && u.role === 'seller');
     if (seller) {
       if (seller.managerId) {
-        const subadmin = users.find(u => (u.uniqueId === seller.managerId || u._id === seller.managerId) && u.role === 'subadmin');
-        if (subadmin) return subadmin.username;
-        // Show all debug info
-        const subadminIds = users.filter(u => u.role === 'subadmin').map(u => `${u.username}(${u.uniqueId || ''}|${u._id || ''})`).join(', ');
-        return `No match: seller.managerId=${seller.managerId}, subadmins=[${subadminIds}]`;
+        return getShopNameById(seller.managerId);
       }
-      return `No managerId for seller (sellerId=${product.sellerId})`;
+      if (seller.shopId) {
+        return getShopNameById(seller.shopId);
+      }
+      return 'Shop data missing';
     }
-    return `No seller found (sellerId=${product.sellerId})`;
+    return 'Seller data missing';
   }
-  // Otherwise, use managerId or shopId directly
-  return getShopNameById(product.managerId || product.shopId);
+  if (product.managerId) return getShopNameById(product.managerId);
+  if (product.shopId) return getShopNameById(product.shopId);
+  return 'Shop data missing';
 }
-
-// Filter subadmins for Shop Requests: only subadmins with active: false
-const shopRequestSubadmins = users.filter(u => u.role === 'subadmin' && u.active === false);
 
   return (
     <div className="admin-dashboard">
@@ -944,13 +1187,41 @@ const shopRequestSubadmins = users.filter(u => u.role === 'subadmin' && u.active
           {sidebarSection === 'products' && (
             <div>
               <h2>Manage Products</h2>
-              <input
-                type="text"
-                placeholder="Search products..."
-                value={productSearch}
-                onChange={e => setProductSearch(e.target.value)}
-                style={{marginBottom: 16, width: '100%', padding: '10px', borderRadius: 8, border: '1px solid #3a6cf6'}}
-              />
+              <div style={{display:'flex',gap:12,marginBottom:16}}>
+                <input
+                  type="text"
+                  placeholder="Search products..."
+                  value={productSearch}
+                  onChange={e => setProductSearch(e.target.value)}
+                  style={{flex:2,padding:'10px',borderRadius:8,border:'1px solid #3a6cf6'}}
+                />
+                <select value={productCategoryFilter} onChange={e => setProductCategoryFilter(e.target.value)} style={{flex:1,padding:'10px',borderRadius:8}}>
+                  <option value="">All Categories</option>
+                  {[...new Set(products.map(p => p.category || 'Uncategorized'))].map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+                <select value={productStockFilter} onChange={e => setProductStockFilter(e.target.value)} style={{flex:1,padding:'10px',borderRadius:8}}>
+                  <option value="">All Stock</option>
+                  <option value="in_stock">In Stock</option>
+                  <option value="low_stock">Low Stock (≤5)</option>
+                  <option value="out_of_stock">Out of Stock</option>
+                </select>
+                <select value={productShopFilter} onChange={e => setProductShopFilter(e.target.value)} style={{flex:1,padding:'10px',borderRadius:8}}>
+                  <option value="">All Shops</option>
+                  {[...new Set(users.filter(u => u.role === 'subadmin').map(u => u.uniqueId || u._id))].map(id => {
+                    const user = users.find(u => (u.uniqueId === id || u._id === id) && u.role === 'subadmin');
+                    return <option key={id} value={id}>{user ? user.username : id}</option>;
+                  })}
+                </select>
+                <select value={productSellerFilter} onChange={e => setProductSellerFilter(e.target.value)} style={{flex:1,padding:'10px',borderRadius:8}}>
+                  <option value="">All Sellers</option>
+                  {[...new Set(users.filter(u => u.role === 'seller').map(u => u.uniqueId || u._id))].map(id => {
+                    const user = users.find(u => (u.uniqueId === id || u._id === id) && u.role === 'seller');
+                    return <option key={id} value={id}>{user ? user.username : id}</option>;
+                  })}
+                </select>
+              </div>
               <button onClick={exportProductsCSV} className="btn btn-outline" style={{marginBottom: 16, float: 'right'}}>Export CSV</button>
               <form onSubmit={handleSubmit} encType="multipart/form-data" style={{display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 18, background: '#232946', borderRadius: 12, padding: 16}}>
                 <input name="name" value={form.name} onChange={handleChange} placeholder="Name" required style={{flex: 1}} />
@@ -990,8 +1261,8 @@ const shopRequestSubadmins = users.filter(u => u.role === 'subadmin' && u.active
                         <td>{product.category}</td>
                         <td>{product.image ? <img src={product.image} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, boxShadow: '0 1px 4px #2222' }} /> : ''}</td>
                         <td>{product.description}</td>
-                        <td>{product.shopId && product.shopId.shopName ? product.shopId.shopName : '-'}</td>
-                        <td>{product.owner && product.owner.username ? product.owner.username : '-'}</td>
+                        <td>{getShopNameForProduct(product)}</td>
+                        <td>{getSellerNameById(product.sellerId)}</td>
                         <td>
                           <button className="btn btn-secondary" onClick={() => handleEdit(product)} style={{marginRight: 6}}>Edit</button>
                           <button className="btn btn-outline" onClick={() => handleDelete(product._id)} style={{ color: '#e74c3c' }}>Delete</button>
@@ -1013,30 +1284,57 @@ const shopRequestSubadmins = users.filter(u => u.role === 'subadmin' && u.active
             <div>
               <h2 style={{color:'#00b894',marginBottom:8}}>Subadmin - Users</h2>
               <h3>Manage Users (Create Sellers)</h3>
-              {/* Debug output for users and error message */}
-              <input
-                type="text"
-                placeholder="Search users..."
-                value={userSearch}
-                onChange={e => setUserSearch(e.target.value)}
-                style={{marginBottom: 16, width: '100%', padding: '10px', borderRadius: 8, border: '1px solid #3a6cf6'}}
-              />
+              {/* User Filters */}
+              <div style={{display:'flex',gap:12,marginBottom:16}}>
+                <input
+                  type="text"
+                  placeholder="Search users..."
+                  value={userSearch}
+                  onChange={e => setUserSearch(e.target.value)}
+                  style={{flex:2,padding:'10px',borderRadius:8,border:'1px solid #3a6cf6'}}
+                />
+                <select value={userRoleFilter} onChange={e => setUserRoleFilter(e.target.value)} style={{flex:1,padding:'10px',borderRadius:8}}>
+                  <option value="">All Roles</option>
+                  <option value="admin">Admin</option>
+                  <option value="subadmin">Sub-Admin</option>
+                  <option value="seller">Seller</option>
+                  <option value="delivery">Delivery</option>
+                  <option value="user">User</option>
+                </select>
+                <select value={userApprovalFilter} onChange={e => setUserApprovalFilter(e.target.value)} style={{flex:1,padding:'10px',borderRadius:8}}>
+                  <option value="">All Status</option>
+                  <option value="approved">Approved</option>
+                  <option value="not_approved">Not Approved</option>
+                </select>
+              </div>
               <button onClick={exportUsersCSV} className="btn btn-outline" style={{marginBottom: 16, float: 'right'}}>Export CSV</button>
               <form onSubmit={handleUserSubmit} style={{display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 18, background: '#232946', borderRadius: 12, padding: 16}}>
                 <input name="username" value={userForm.username} onChange={handleUserChange} placeholder="Username" required style={{flex: 1}} />
                 <input name="email" value={userForm.email} onChange={handleUserChange} placeholder="Email" required style={{flex: 1}} />
                 <input name="password" type="password" value={userForm.password} onChange={handleUserChange} placeholder="Password" required style={{flex: 1}} />
+                <input name="phone" value={userForm.phone} onChange={handleUserChange} placeholder="Phone" required style={{flex: 1}} />
                 <select name="role" value={userForm.role} onChange={handleUserChange} style={{flex: 1}}>
                   <option value="seller">Seller</option>
                   <option value="subadmin">Sub-Admin</option>
                 </select>
                 <button type="submit" style={{flex: 1}}>Create User</button>
               </form>
+              {/* Delivery Person Creation Form */}
+              <div style={{margin:'2rem 0',padding:'1.5rem',background:'#f8f9fa',borderRadius:8,maxWidth:500}}>
+                <h3>Create Delivery Person</h3>
+                <form onSubmit={handleDeliverySubmit} style={{display:'flex',flexDirection:'column',gap:10}}>
+                  <input name="username" value={deliveryForm.username} onChange={handleDeliveryChange} placeholder="Username" required />
+                  <input name="email" value={deliveryForm.email} onChange={handleDeliveryChange} placeholder="Email" required />
+                  <input name="password" type="password" value={deliveryForm.password} onChange={handleDeliveryChange} placeholder="Password" required />
+                  <button type="submit">Create Delivery Account</button>
+                  {deliveryMsg && <div style={{color:deliveryMsg.startsWith('Error')?'red':'green'}}>{deliveryMsg}</div>}
+                </form>
+              </div>
               <div style={{overflowX: 'auto'}}>
                 <table className="future-table" style={{minWidth: 700}}>
                   <thead>
                     <tr>
-                      <th>Username</th><th>Email</th><th>Role</th><th>Created By</th><th>Actions</th>
+                      <th>Username</th><th>Email</th><th>Role</th><th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1051,7 +1349,6 @@ const shopRequestSubadmins = users.filter(u => u.role === 'subadmin' && u.active
                               <option value="subadmin">Sub-Admin</option>
                             </select>
                           </td>
-                          <td>-</td>
                           <td>
                             <input name="password" type="password" value={editUserForm.password} onChange={handleEditUserChange} placeholder="New password (optional)" />
                             <button onClick={handleEditUserSubmit}>Save</button>
@@ -1063,7 +1360,6 @@ const shopRequestSubadmins = users.filter(u => u.role === 'subadmin' && u.active
                           <td>{user.username}</td>
                           <td>{user.email}</td>
                           <td>{user.role}</td>
-                          <td>{user.role === 'seller' && user.shopId && user.shopId.shopName ? user.shopId.shopName : user.role === 'subadmin' && user.owner && user.owner.username ? user.owner.username : user.role === 'admin' ? 'Super Admin' : '-'}</td>
                           <td>
                             <button onClick={() => handleEditUser(user)} style={{marginRight: 6}}>Edit</button>
                             <button onClick={() => handleUserDelete(user._id)} style={{ background: '#e74c3c', color: '#fff', marginRight: 6 }}>Delete</button>
@@ -1169,6 +1465,697 @@ const shopRequestSubadmins = users.filter(u => u.role === 'subadmin' && u.active
               </div>
             </div>
           )}
+          {sidebarSection === 'products' && (
+            <div>
+              <h2>Manage Products</h2>
+              <div style={{display:'flex',gap:12,marginBottom:16}}>
+                <input
+                  type="text"
+                  placeholder="Search products..."
+                  value={productSearch}
+                  onChange={e => setProductSearch(e.target.value)}
+                  style={{flex:2,padding:'10px',borderRadius:8,border:'1px solid #3a6cf6'}}
+                />
+                <select value={productCategoryFilter} onChange={e => setProductCategoryFilter(e.target.value)} style={{flex:1,padding:'10px',borderRadius:8}}>
+                  <option value="">All Categories</option>
+                  {[...new Set(products.map(p => p.category || 'Uncategorized'))].map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+                <select value={productStockFilter} onChange={e => setProductStockFilter(e.target.value)} style={{flex:1,padding:'10px',borderRadius:8}}>
+                  <option value="">All Stock</option>
+                  <option value="in_stock">In Stock</option>
+                  <option value="low_stock">Low Stock (≤5)</option>
+                  <option value="out_of_stock">Out of Stock</option>
+                </select>
+                <select value={productShopFilter} onChange={e => setProductShopFilter(e.target.value)} style={{flex:1,padding:'10px',borderRadius:8}}>
+                  <option value="">All Shops</option>
+                  {[...new Set(users.filter(u => u.role === 'subadmin').map(u => u.uniqueId || u._id))].map(id => {
+                    const user = users.find(u => (u.uniqueId === id || u._id === id) && u.role === 'subadmin');
+                    return <option key={id} value={id}>{user ? user.username : id}</option>;
+                  })}
+                </select>
+                <select value={productSellerFilter} onChange={e => setProductSellerFilter(e.target.value)} style={{flex:1,padding:'10px',borderRadius:8}}>
+                  <option value="">All Sellers</option>
+                  {[...new Set(users.filter(u => u.role === 'seller').map(u => u.uniqueId || u._id))].map(id => {
+                    const user = users.find(u => (u.uniqueId === id || u._id === id) && u.role === 'seller');
+                    return <option key={id} value={id}>{user ? user.username : id}</option>;
+                  })}
+                </select>
+              </div>
+              <button onClick={exportProductsCSV} className="btn btn-outline" style={{marginBottom: 16, float: 'right'}}>Export CSV</button>
+              <form onSubmit={handleSubmit} encType="multipart/form-data" style={{display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 18, background: '#232946', borderRadius: 12, padding: 16}}>
+                <input name="name" value={form.name} onChange={handleChange} placeholder="Name" required style={{flex: 1}} />
+                <input name="price" value={form.price} onChange={handleChange} placeholder="Price" required style={{flex: 1}} />
+                <input name="category" value={form.category} onChange={handleChange} placeholder="Category" style={{flex: 1}} />
+                <input name="image" value={form.image} onChange={handleChange} placeholder="Image URL or filename" style={{flex: 2}} />
+                <input type="file" accept="image/*" onChange={handleImageChange} style={{flex: 2}} />
+                <input name="description" value={form.description} onChange={handleChange} placeholder="Description" style={{flex: 2}} />
+                <button type="submit" style={{flex: 1}}>{editing ? 'Update' : 'Add'} Product</button>
+                {editing && <button type="button" onClick={() => { setEditing(null); setForm({ name: '', price: '', category: '', image: '', description: '' }); setImageFile(null); }} style={{flex: 1, background: '#e74c3c'}}>Cancel</button>}
+              </form>
+              {lowStockProducts.length > 0 && (
+                <div className="low-stock-alert">
+                  <span>⚠️ Low Stock Alert: </span>
+                  {lowStockProducts.map(p => `${p.name} (${p.stock})`).join(', ')}
+                </div>
+              )}
+              <div style={{overflowX: 'auto'}}>
+                <table className="future-table" style={{minWidth: 1000}}>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Price</th>
+                      <th>Category</th>
+                      <th>Image</th>
+                      <th>Description</th>
+                      <th>Shop (Subadmin)</th>
+                      <th>Seller</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedProducts.map(product => (
+                      <tr key={product._id} style={{background: editing && editing._id === product._id ? '#353b48' : undefined}}>
+                        <td>{product.name}</td>
+                        <td>${product.price}</td>
+                        <td>{product.category}</td>
+                        <td>{product.image ? <img src={product.image} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, boxShadow: '0 1px 4px #2222' }} /> : ''}</td>
+                        <td>{product.description}</td>
+                        <td>{getShopNameForProduct(product)}</td>
+                        <td>{getSellerNameById(product.sellerId)}</td>
+                        <td>
+                          <button className="btn btn-secondary" onClick={() => handleEdit(product)} style={{marginRight: 6}}>Edit</button>
+                          <button className="btn btn-outline" onClick={() => handleDelete(product._id)} style={{ color: '#e74c3c' }}>Delete</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {/* Pagination controls */}
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32, gap: 12 }}>
+                <button onClick={() => setProductPage(p => Math.max(1, p - 1))} disabled={productPage === 1}>&lt; Prev</button>
+                <span>Page {productPage} of {totalProductPages}</span>
+                <button onClick={() => setProductPage(p => Math.min(totalProductPages, p + 1))} disabled={productPage === totalProductPages}>Next &gt;</button>
+              </div>
+            </div>
+          )}
+          {sidebarSection === 'users' && (
+            <div>
+              <h2 style={{color:'#00b894',marginBottom:8}}>Subadmin - Users</h2>
+              <h3>Manage Users (Create Sellers)</h3>
+              {/* User Filters */}
+              <div style={{display:'flex',gap:12,marginBottom:16}}>
+                <input
+                  type="text"
+                  placeholder="Search users..."
+                  value={userSearch}
+                  onChange={e => setUserSearch(e.target.value)}
+                  style={{flex:2,padding:'10px',borderRadius:8,border:'1px solid #3a6cf6'}}
+                />
+                <select value={userRoleFilter} onChange={e => setUserRoleFilter(e.target.value)} style={{flex:1,padding:'10px',borderRadius:8}}>
+                  <option value="">All Roles</option>
+                  <option value="admin">Admin</option>
+                  <option value="subadmin">Sub-Admin</option>
+                  <option value="seller">Seller</option>
+                  <option value="delivery">Delivery</option>
+                  <option value="user">User</option>
+                </select>
+                <select value={userApprovalFilter} onChange={e => setUserApprovalFilter(e.target.value)} style={{flex:1,padding:'10px',borderRadius:8}}>
+                  <option value="">All Status</option>
+                  <option value="approved">Approved</option>
+                  <option value="not_approved">Not Approved</option>
+                </select>
+              </div>
+              <button onClick={exportUsersCSV} className="btn btn-outline" style={{marginBottom: 16, float: 'right'}}>Export CSV</button>
+              <form onSubmit={handleUserSubmit} style={{display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 18, background: '#232946', borderRadius: 12, padding: 16}}>
+                <input name="username" value={userForm.username} onChange={handleUserChange} placeholder="Username" required style={{flex: 1}} />
+                <input name="email" value={userForm.email} onChange={handleUserChange} placeholder="Email" required style={{flex: 1}} />
+                <input name="password" type="password" value={userForm.password} onChange={handleUserChange} placeholder="Password" required style={{flex: 1}} />
+                <input name="phone" value={userForm.phone} onChange={handleUserChange} placeholder="Phone" required style={{flex: 1}} />
+                <select name="role" value={userForm.role} onChange={handleUserChange} style={{flex: 1}}>
+                  <option value="seller">Seller</option>
+                  <option value="subadmin">Sub-Admin</option>
+                </select>
+                <button type="submit" style={{flex: 1}}>Create User</button>
+              </form>
+              {/* Delivery Person Creation Form */}
+              <div style={{margin:'2rem 0',padding:'1.5rem',background:'#f8f9fa',borderRadius:8,maxWidth:500}}>
+                <h3>Create Delivery Person</h3>
+                <form onSubmit={handleDeliverySubmit} style={{display:'flex',flexDirection:'column',gap:10}}>
+                  <input name="username" value={deliveryForm.username} onChange={handleDeliveryChange} placeholder="Username" required />
+                  <input name="email" value={deliveryForm.email} onChange={handleDeliveryChange} placeholder="Email" required />
+                  <input name="password" type="password" value={deliveryForm.password} onChange={handleDeliveryChange} placeholder="Password" required />
+                  <button type="submit">Create Delivery Account</button>
+                  {deliveryMsg && <div style={{color:deliveryMsg.startsWith('Error')?'red':'green'}}>{deliveryMsg}</div>}
+                </form>
+              </div>
+              <div style={{overflowX: 'auto'}}>
+                <table className="future-table" style={{minWidth: 700}}>
+                  <thead>
+                    <tr>
+                      <th>Username</th><th>Email</th><th>Role</th><th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredUsers.map(user => (
+                      editingUser === user._id ? (
+                        <tr key={user._id} style={{ background: '#353b48' }}>
+                          <td><input name="username" value={editUserForm.username} onChange={handleEditUserChange} /></td>
+                          <td><input name="email" value={editUserForm.email} onChange={handleEditUserChange} /></td>
+                          <td>
+                            <select name="role" value={editUserForm.role} onChange={handleEditUserChange}>
+                              <option value="seller">Seller</option>
+                              <option value="subadmin">Sub-Admin</option>
+                            </select>
+                          </td>
+                          <td>
+                            <input name="password" type="password" value={editUserForm.password} onChange={handleEditUserChange} placeholder="New password (optional)" />
+                            <button onClick={handleEditUserSubmit}>Save</button>
+                            <button onClick={handleCancelEditUser}>Cancel</button>
+                          </td>
+                        </tr>
+                      ) : (
+                        <tr key={user._id}>
+                          <td>{user.username}</td>
+                          <td>{user.email}</td>
+                          <td>{user.role}</td>
+                          <td>
+                            <button onClick={() => handleEditUser(user)} style={{marginRight: 6}}>Edit</button>
+                            <button onClick={() => handleUserDelete(user._id)} style={{ background: '#e74c3c', color: '#fff', marginRight: 6 }}>Delete</button>
+                          </td>
+                        </tr>
+                      )
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+          {sidebarSection === 'analytics' && (
+            <div>
+              {/* Sales summary and analytics (from backend) */}
+              <div className="future-dashboard-cards" style={{display: 'flex', flexWrap: 'wrap', gap: 24, marginBottom: 32}}>
+                <div className="future-card" style={{flex: 1, padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-start'}}>
+                  <div style={{fontSize: 14, color: '#888'}}>Total Orders</div>
+                  <div style={{fontWeight: 700, fontSize: 28, color: '#0984e3'}}>{salesSummary.totalOrders}</div>
+                </div>
+                <div className="future-card" style={{flex: 1, padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-start'}}>
+                  <div style={{fontSize: 14, color: '#888'}}>Total Revenue</div>
+                  <div style={{fontWeight: 700, fontSize: 28, color: '#27ae60'}}>ETB {salesSummary.totalRevenue.toLocaleString()}</div>
+                </div>
+                <div className="future-card" style={{flex: 1, padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-start'}}>
+                  <div style={{fontSize: 14, color: '#888'}}>Products</div>
+                  <div style={{fontWeight: 700, fontSize: 28, color: '#f7c948'}}>{salesSummary.productCount}</div>
+                </div>
+                <div className="future-card" style={{flex: 1, padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-start'}}>
+                  <div style={{fontSize: 14, color: '#888'}}>Users</div>
+                  <div style={{fontWeight: 700, fontSize: 28, color: '#888'}}>{salesSummary.userCount}</div>
+                </div>
+              </div>
+              {/* --- Advanced Analytics Charts --- */}
+              <div className="future-dashboard-row" style={{display: 'flex', flexWrap: 'wrap', gap: 24, marginBottom: 32, width: '100%'}}>
+                <div className="future-chart-container" style={{flex: 2, padding: '1.5rem'}}>
+                  <div style={{fontWeight: 600, marginBottom: 12}}>Orders by Month</div>
+                  <Bar data={ordersByMonthData} options={{responsive: true, plugins: {legend: {display: false}}, scales: {y: {beginAtZero: true}}}} height={180} />
+                </div>
+                <div className="future-chart-container" style={{flex: 2, padding: '1.5rem'}}>
+                  <div style={{fontWeight: 600, marginBottom: 12}}>Revenue by Month</div>
+                  <Bar data={revenueByMonthData} options={{responsive: true, plugins: {legend: {display: false}}, scales: {y: {beginAtZero: true}}}} height={180} />
+                </div>
+                <div className="future-chart-container" style={{flex: 1, padding: '1.5rem'}}>
+                  <div style={{fontWeight: 600, marginBottom: 12}}>Users by Role</div>
+                  <Pie data={usersByRoleData} options={{responsive: true, plugins: {legend: {position: 'bottom'}}}} height={180} />
+                </div>
+              </div>
+              <div className="future-chart-container" style={{padding: '1.5rem', marginBottom: 32, width: '100%', boxSizing: 'border-box'}}>
+                <div style={{fontWeight: 600, marginBottom: 12}}>Top Selling Products</div>
+                <Bar data={topProductsData} options={{responsive: true, plugins: {legend: {display: false}}, scales: {y: {beginAtZero: true}}}} height={180} />
+              </div>
+              {/* --- Real-Time & Custom Analytics Widgets --- */}
+              <div className="future-dashboard-row" style={{display: 'flex', flexWrap: 'wrap', gap: 24, marginBottom: 32, alignItems: 'stretch', width: '100%'}}>
+                <div className="future-card future-glow" style={{flex: 1, padding: '1.5rem', minWidth: 220, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'}} title="Real-Time Active Users">
+                  <div style={{fontWeight: 600, marginBottom: 8}}>Active Users</div>
+                  <div style={{fontSize: 38, fontWeight: 900, color: '#3a6cf6', transition: 'all 0.5s'}}>{activeUsers}</div>
+                  <div style={{fontSize: 13, color: '#888'}}>in the last 5 min</div>
+                </div>
+                <div className="future-card" style={{flex: 2, padding: '1.5rem', minWidth: 220, display: 'flex', flexDirection: 'column', justifyContent: 'center'}} title="Live Sales Ticker">
+                  <div style={{fontWeight: 600, marginBottom: 8}}>Live Sales</div>
+                  <div style={{fontSize: 18, color: '#27ae60', minHeight: 32, transition: 'all 0.5s'}}>
+                    {salesTicker[tickerIndex]?.msg}
+                  </div>
+                </div>
+                <div className="future-card" style={{flex: 3, padding: '1.5rem', minWidth: 220}} title="Product/Category Heatmap">
+                  <div style={{fontWeight: 600, marginBottom: 8}}>Product/Category Heatmap</div>
+                  <div style={{display: 'flex', gap: 8, flexWrap: 'wrap'}}>
+                    {heatmapLabels.map((cat, i) => {
+                      const rawOpacity = 0.8 + 0.2 * (heatmapValues[i] / Math.max(...heatmapValues || [1]));
+                      const safeOpacity = isNaN(rawOpacity) ? 1 : Math.max(0, Math.min(1, rawOpacity));
+                      return (
+                        <div
+                          key={cat}
+                          style={{
+                            background: '#3a6cf6',
+                            color: '#fff',
+                            borderRadius: 8,
+                            padding: '8px 16px',
+                            marginBottom: 6,
+                            fontWeight: 600,
+                            opacity: safeOpacity
+                          }}
+                        >
+                          {cat}: {heatmapValues[i]}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="future-card" style={{flex: 2, padding: '1.5rem', minWidth: 220}} title="Recent Logins">
+                  <div style={{fontWeight: 600, marginBottom: 8}}>Recent Logins</div>
+                  <ul style={{listStyle: 'none', padding: 0, margin: 0, fontSize: 15}}>
+                    {recentLogins.map(l => <li key={l.user}><b>{l.user}</b> <span style={{color: '#888'}}>({l.role})</span> <span style={{float: 'right', color: '#3a6cf6'}}>{l.time}</span></li>)}
+                  </ul>
+                </div>
+                <div className="future-card" style={{flex: 1, padding: '1.5rem', minWidth: 220}} title="Live Server Status">
+                  <div style={{fontWeight: 600, marginBottom: 8}}>Live Server Status</div>
+                  <ul style={{listStyle: 'none', padding: 0, margin: 0, fontSize: 15}}>
+                    {liveStatus.map(s => <li key={s.label}><b>{s.label}:</b> <span style={{color: s.status === 'online' ? '#27ae60' : '#f7c948', fontWeight: 700, animation: s.status === 'online' ? 'glowPulse 1.5s infinite alternate' : undefined}}>{s.status}</span></li>)}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+          {sidebarSection === 'products' && (
+            <div>
+              <h2>Manage Products</h2>
+              <div style={{display:'flex',gap:12,marginBottom:16}}>
+                <input
+                  type="text"
+                  placeholder="Search products..."
+                  value={productSearch}
+                  onChange={e => setProductSearch(e.target.value)}
+                  style={{flex:2,padding:'10px',borderRadius:8,border:'1px solid #3a6cf6'}}
+                />
+                <select value={productCategoryFilter} onChange={e => setProductCategoryFilter(e.target.value)} style={{flex:1,padding:'10px',borderRadius:8}}>
+                  <option value="">All Categories</option>
+                  {[...new Set(products.map(p => p.category || 'Uncategorized'))].map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+                <select value={productStockFilter} onChange={e => setProductStockFilter(e.target.value)} style={{flex:1,padding:'10px',borderRadius:8}}>
+                  <option value="">All Stock</option>
+                  <option value="in_stock">In Stock</option>
+                  <option value="low_stock">Low Stock (≤5)</option>
+                  <option value="out_of_stock">Out of Stock</option>
+                </select>
+                <select value={productShopFilter} onChange={e => setProductShopFilter(e.target.value)} style={{flex:1,padding:'10px',borderRadius:8}}>
+                  <option value="">All Shops</option>
+                  {[...new Set(users.filter(u => u.role === 'subadmin').map(u => u.uniqueId || u._id))].map(id => {
+                    const user = users.find(u => (u.uniqueId === id || u._id === id) && u.role === 'subadmin');
+                    return <option key={id} value={id}>{user ? user.username : id}</option>;
+                  })}
+                </select>
+                <select value={productSellerFilter} onChange={e => setProductSellerFilter(e.target.value)} style={{flex:1,padding:'10px',borderRadius:8}}>
+                  <option value="">All Sellers</option>
+                  {[...new Set(users.filter(u => u.role === 'seller').map(u => u.uniqueId || u._id))].map(id => {
+                    const user = users.find(u => (u.uniqueId === id || u._id === id) && u.role === 'seller');
+                    return <option key={id} value={id}>{user ? user.username : id}</option>;
+                  })}
+                </select>
+              </div>
+              <button onClick={exportProductsCSV} className="btn btn-outline" style={{marginBottom: 16, float: 'right'}}>Export CSV</button>
+              <form onSubmit={handleSubmit} encType="multipart/form-data" style={{display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 18, background: '#232946', borderRadius: 12, padding: 16}}>
+                <input name="name" value={form.name} onChange={handleChange} placeholder="Name" required style={{flex: 1}} />
+                <input name="price" value={form.price} onChange={handleChange} placeholder="Price" required style={{flex: 1}} />
+                <input name="category" value={form.category} onChange={handleChange} placeholder="Category" style={{flex: 1}} />
+                <input name="image" value={form.image} onChange={handleChange} placeholder="Image URL or filename" style={{flex: 2}} />
+                <input type="file" accept="image/*" onChange={handleImageChange} style={{flex: 2}} />
+                <input name="description" value={form.description} onChange={handleChange} placeholder="Description" style={{flex: 2}} />
+                <button type="submit" style={{flex: 1}}>{editing ? 'Update' : 'Add'} Product</button>
+                {editing && <button type="button" onClick={() => { setEditing(null); setForm({ name: '', price: '', category: '', image: '', description: '' }); setImageFile(null); }} style={{flex: 1, background: '#e74c3c'}}>Cancel</button>}
+              </form>
+              {lowStockProducts.length > 0 && (
+                <div className="low-stock-alert">
+                  <span>⚠️ Low Stock Alert: </span>
+                  {lowStockProducts.map(p => `${p.name} (${p.stock})`).join(', ')}
+                </div>
+              )}
+              <div style={{overflowX: 'auto'}}>
+                <table className="future-table" style={{minWidth: 1000}}>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Price</th>
+                      <th>Category</th>
+                      <th>Image</th>
+                      <th>Description</th>
+                      <th>Shop (Subadmin)</th>
+                      <th>Seller</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedProducts.map(product => (
+                      <tr key={product._id} style={{background: editing && editing._id === product._id ? '#353b48' : undefined}}>
+                        <td>{product.name}</td>
+                        <td>${product.price}</td>
+                        <td>{product.category}</td>
+                        <td>{product.image ? <img src={product.image} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, boxShadow: '0 1px 4px #2222' }} /> : ''}</td>
+                        <td>{product.description}</td>
+                        <td>{getShopNameForProduct(product)}</td>
+                        <td>{getSellerNameById(product.sellerId)}</td>
+                        <td>
+                          <button className="btn btn-secondary" onClick={() => handleEdit(product)} style={{marginRight: 6}}>Edit</button>
+                          <button className="btn btn-outline" onClick={() => handleDelete(product._id)} style={{ color: '#e74c3c' }}>Delete</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {/* Pagination controls */}
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32, gap: 12 }}>
+                <button onClick={() => setProductPage(p => Math.max(1, p - 1))} disabled={productPage === 1}>&lt; Prev</button>
+                <span>Page {productPage} of {totalProductPages}</span>
+                <button onClick={() => setProductPage(p => Math.min(totalProductPages, p + 1))} disabled={productPage === totalProductPages}>Next &gt;</button>
+              </div>
+            </div>
+          )}
+          {sidebarSection === 'users' && (
+            <div>
+              <h2 style={{color:'#00b894',marginBottom:8}}>Subadmin - Users</h2>
+              <h3>Manage Users (Create Sellers)</h3>
+              {/* User Filters */}
+              <div style={{display:'flex',gap:12,marginBottom:16}}>
+                <input
+                  type="text"
+                  placeholder="Search users..."
+                  value={userSearch}
+                  onChange={e => setUserSearch(e.target.value)}
+                  style={{flex:2,padding:'10px',borderRadius:8,border:'1px solid #3a6cf6'}}
+                />
+                <select value={userRoleFilter} onChange={e => setUserRoleFilter(e.target.value)} style={{flex:1,padding:'10px',borderRadius:8}}>
+                  <option value="">All Roles</option>
+                  <option value="admin">Admin</option>
+                  <option value="subadmin">Sub-Admin</option>
+                  <option value="seller">Seller</option>
+                  <option value="delivery">Delivery</option>
+                  <option value="user">User</option>
+                </select>
+                <select value={userApprovalFilter} onChange={e => setUserApprovalFilter(e.target.value)} style={{flex:1,padding:'10px',borderRadius:8}}>
+                  <option value="">All Status</option>
+                  <option value="approved">Approved</option>
+                  <option value="not_approved">Not Approved</option>
+                </select>
+              </div>
+              <button onClick={exportUsersCSV} className="btn btn-outline" style={{marginBottom: 16, float: 'right'}}>Export CSV</button>
+              <form onSubmit={handleUserSubmit} style={{display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 18, background: '#232946', borderRadius: 12, padding: 16}}>
+                <input name="username" value={userForm.username} onChange={handleUserChange} placeholder="Username" required style={{flex: 1}} />
+                <input name="email" value={userForm.email} onChange={handleUserChange} placeholder="Email" required style={{flex: 1}} />
+                <input name="password" type="password" value={userForm.password} onChange={handleUserChange} placeholder="Password" required style={{flex: 1}} />
+                <input name="phone" value={userForm.phone} onChange={handleUserChange} placeholder="Phone" required style={{flex: 1}} />
+                <select name="role" value={userForm.role} onChange={handleUserChange} style={{flex: 1}}>
+                  <option value="seller">Seller</option>
+                  <option value="subadmin">Sub-Admin</option>
+                </select>
+                <button type="submit" style={{flex: 1}}>Create User</button>
+              </form>
+              {/* Delivery Person Creation Form */}
+              <div style={{margin:'2rem 0',padding:'1.5rem',background:'#f8f9fa',borderRadius:8,maxWidth:500}}>
+                <h3>Create Delivery Person</h3>
+                <form onSubmit={handleDeliverySubmit} style={{display:'flex',flexDirection:'column',gap:10}}>
+                  <input name="username" value={deliveryForm.username} onChange={handleDeliveryChange} placeholder="Username" required />
+                  <input name="email" value={deliveryForm.email} onChange={handleDeliveryChange} placeholder="Email" required />
+                  <input name="password" type="password" value={deliveryForm.password} onChange={handleDeliveryChange} placeholder="Password" required />
+                  <button type="submit">Create Delivery Account</button>
+                  {deliveryMsg && <div style={{color:deliveryMsg.startsWith('Error')?'red':'green'}}>{deliveryMsg}</div>}
+                </form>
+              </div>
+              <div style={{overflowX: 'auto'}}>
+                <table className="future-table" style={{minWidth: 700}}>
+                  <thead>
+                    <tr>
+                      <th>Username</th><th>Email</th><th>Role</th><th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredUsers.map(user => (
+                      editingUser === user._id ? (
+                        <tr key={user._id} style={{ background: '#353b48' }}>
+                          <td><input name="username" value={editUserForm.username} onChange={handleEditUserChange} /></td>
+                          <td><input name="email" value={editUserForm.email} onChange={handleEditUserChange} /></td>
+                          <td>
+                            <select name="role" value={editUserForm.role} onChange={handleEditUserChange}>
+                              <option value="seller">Seller</option>
+                              <option value="subadmin">Sub-Admin</option>
+                            </select>
+                          </td>
+                          <td>
+                            <input name="password" type="password" value={editUserForm.password} onChange={handleEditUserChange} placeholder="New password (optional)" />
+                            <button onClick={handleEditUserSubmit}>Save</button>
+                            <button onClick={handleCancelEditUser}>Cancel</button>
+                          </td>
+                        </tr>
+                      ) : (
+                        <tr key={user._id}>
+                          <td>{user.username}</td>
+                          <td>{user.email}</td>
+                          <td>{user.role}</td>
+                          <td>
+                            <button onClick={() => handleEditUser(user)} style={{marginRight: 6}}>Edit</button>
+                            <button onClick={() => handleUserDelete(user._id)} style={{ background: '#e74c3c', color: '#fff', marginRight: 6 }}>Delete</button>
+                          </td>
+                        </tr>
+                      )
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+          {sidebarSection === 'analytics' && (
+            <div>
+              {/* Sales summary and analytics (from backend) */}
+              <div className="future-dashboard-cards" style={{display: 'flex', flexWrap: 'wrap', gap: 24, marginBottom: 32}}>
+                <div className="future-card" style={{flex: 1, padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-start'}}>
+                  <div style={{fontSize: 14, color: '#888'}}>Total Orders</div>
+                  <div style={{fontWeight: 700, fontSize: 28, color: '#0984e3'}}>{salesSummary.totalOrders}</div>
+                </div>
+                <div className="future-card" style={{flex: 1, padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-start'}}>
+                  <div style={{fontSize: 14, color: '#888'}}>Total Revenue</div>
+                  <div style={{fontWeight: 700, fontSize: 28, color: '#27ae60'}}>ETB {salesSummary.totalRevenue.toLocaleString()}</div>
+                </div>
+                <div className="future-card" style={{flex: 1, padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-start'}}>
+                  <div style={{fontSize: 14, color: '#888'}}>Products</div>
+                  <div style={{fontWeight: 700, fontSize: 28, color: '#f7c948'}}>{salesSummary.productCount}</div>
+                </div>
+                <div className="future-card" style={{flex: 1, padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-start'}}>
+                  <div style={{fontSize: 14, color: '#888'}}>Users</div>
+                  <div style={{fontWeight: 700, fontSize: 28, color: '#888'}}>{salesSummary.userCount}</div>
+                </div>
+              </div>
+              {/* --- Advanced Analytics Charts --- */}
+              <div className="future-dashboard-row" style={{display: 'flex', flexWrap: 'wrap', gap: 24, marginBottom: 32, width: '100%'}}>
+                <div className="future-chart-container" style={{flex: 2, padding: '1.5rem'}}>
+                  <div style={{fontWeight: 600, marginBottom: 12}}>Orders by Month</div>
+                  <Bar data={ordersByMonthData} options={{responsive: true, plugins: {legend: {display: false}}, scales: {y: {beginAtZero: true}}}} height={180} />
+                </div>
+                <div className="future-chart-container" style={{flex: 2, padding: '1.5rem'}}>
+                  <div style={{fontWeight: 600, marginBottom: 12}}>Revenue by Month</div>
+                  <Bar data={revenueByMonthData} options={{responsive: true, plugins: {legend: {display: false}}, scales: {y: {beginAtZero: true}}}} height={180} />
+                </div>
+                <div className="future-chart-container" style={{flex: 1, padding: '1.5rem'}}>
+                  <div style={{fontWeight: 600, marginBottom: 12}}>Users by Role</div>
+                  <Pie data={usersByRoleData} options={{responsive: true, plugins: {legend: {position: 'bottom'}}}} height={180} />
+                </div>
+              </div>
+              <div className="future-chart-container" style={{padding: '1.5rem', marginBottom: 32, width: '100%', boxSizing: 'border-box'}}>
+                <div style={{fontWeight: 600, marginBottom: 12}}>Top Selling Products</div>
+                <Bar data={topProductsData} options={{responsive: true, plugins: {legend: {display: false}}, scales: {y: {beginAtZero: true}}}} height={180} />
+              </div>
+              {/* --- Real-Time & Custom Analytics Widgets --- */}
+              <div className="future-dashboard-row" style={{display: 'flex', flexWrap: 'wrap', gap: 24, marginBottom: 32, alignItems: 'stretch', width: '100%'}}>
+                <div className="future-card future-glow" style={{flex: 1, padding: '1.5rem', minWidth: 220, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'}} title="Real-Time Active Users">
+                  <div style={{fontWeight: 600, marginBottom: 8}}>Active Users</div>
+                  <div style={{fontSize: 38, fontWeight: 900, color: '#3a6cf6', transition: 'all 0.5s'}}>{activeUsers}</div>
+                  <div style={{fontSize: 13, color: '#888'}}>in the last 5 min</div>
+                </div>
+                <div className="future-card" style={{flex: 2, padding: '1.5rem', minWidth: 220, display: 'flex', flexDirection: 'column', justifyContent: 'center'}} title="Live Sales Ticker">
+                  <div style={{fontWeight: 600, marginBottom: 8}}>Live Sales</div>
+                  <div style={{fontSize: 18, color: '#27ae60', minHeight: 32, transition: 'all 0.5s'}}>
+                    {salesTicker[tickerIndex]?.msg}
+                  </div>
+                </div>
+                <div className="future-card" style={{flex: 3, padding: '1.5rem', minWidth: 220}} title="Product/Category Heatmap">
+                  <div style={{fontWeight: 600, marginBottom: 8}}>Product/Category Heatmap</div>
+                  <div style={{display: 'flex', gap: 8, flexWrap: 'wrap'}}>
+                    {heatmapLabels.map((cat, i) => {
+                      const rawOpacity = 0.8 + 0.2 * (heatmapValues[i] / Math.max(...heatmapValues || [1]));
+                      const safeOpacity = isNaN(rawOpacity) ? 1 : Math.max(0, Math.min(1, rawOpacity));
+                      return (
+                        <div
+                          key={cat}
+                          style={{
+                            background: '#3a6cf6',
+                            color: '#fff',
+                            borderRadius: 8,
+                            padding: '8px 16px',
+                            marginBottom: 6,
+                            fontWeight: 600,
+                            opacity: safeOpacity
+                          }}
+                        >
+                          {cat}: {heatmapValues[i]}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="future-card" style={{flex: 2, padding: '1.5rem', minWidth: 220}} title="Recent Logins">
+                  <div style={{fontWeight: 600, marginBottom: 8}}>Recent Logins</div>
+                  <ul style={{listStyle: 'none', padding: 0, margin: 0, fontSize: 15}}>
+                    {recentLogins.map(l => <li key={l.user}><b>{l.user}</b> <span style={{color: '#888'}}>({l.role})</span> <span style={{float: 'right', color: '#3a6cf6'}}>{l.time}</span></li>)}
+                  </ul>
+                </div>
+                <div className="future-card" style={{flex: 1, padding: '1.5rem', minWidth: 220}} title="Live Server Status">
+                  <div style={{fontWeight: 600, marginBottom: 8}}>Live Server Status</div>
+                  <ul style={{listStyle: 'none', padding: 0, margin: 0, fontSize: 15}}>
+                    {liveStatus.map(s => <li key={s.label}><b>{s.label}:</b> <span style={{color: s.status === 'online' ? '#27ae60' : '#f7c948', fontWeight: 700, animation: s.status === 'online' ? 'glowPulse 1.5s infinite alternate' : undefined}}>{s.status}</span></li>)}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+          {sidebarSection === 'orders' && (
+            <div>
+              <h2>Your Orders</h2>
+              <div style={{marginBottom:16}}>
+                <button
+                  onClick={() => setOrderViewType(v => v === 'table' ? 'card' : 'table')}
+                  style={{marginBottom:12, padding:'8px 18px', borderRadius:6, border:'1px solid #3a6cf6', background:'#fff', color:'#3a6cf6', fontWeight:600, cursor:'pointer'}}
+                >
+                  Switch to {orderViewType === 'table' ? 'Card View' : 'Table View'}
+                </button>
+              </div>
+              {orderViewType === 'table' ? (
+                // --- Old Table View ---
+                <div style={{overflowX:'auto'}}>
+                  <table className="future-table" style={{minWidth:1100}}>
+                    <thead>
+                      <tr>
+                        <th>Order ID</th>
+                        <th>User</th>
+                        <th>Status</th>
+                        <th>Payment</th>
+                        <th>Payment Method</th>
+                        <th>Transaction Number</th>
+                        <th>Payment Approval</th>
+                        <th>Total</th>
+                        <th>Date</th>
+                        <th>Shop</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orders.map(order => (
+                        <tr key={order._id || order.id}>
+                          <td>{order._id || order.id}</td>
+                          <td>{order.user?.username || order.user || '-'}</td>
+                          <td>{order.status || '-'}</td>
+                          <td>{order.paymentStatus || '-'}</td>
+                          <td>{order.paymentMethod || '-'}</td>
+                          <td>{order.paymentTransaction || '-'}</td>
+                          <td>{['cbe','telebirr','CBE','Telebirr'].includes((order.paymentMethod||'').toLowerCase()) ? (
+                            order.paymentApprovalStatus === 'approved' ? (
+                              <span style={{color:'#27ae60',fontWeight:600}}>Approved</span>
+                            ) : order.paymentApprovalStatus === 'rejected' ? (
+                              <span style={{color:'#e74c3c',fontWeight:600}}>Rejected</span>
+                            ) : order.paymentApprovalStatus === 'pending' || order.paymentStatus === 'pending' ? (
+                              <>
+                                <button onClick={async () => {
+                                  try {
+                                    await axios.patch(`${API_BASE}/orders/${order._id}/approve-payment`, { action: 'approve' }, { headers: { Authorization: `Bearer ${token}` } });
+                                    fetchOrders();
+                                  } catch (err) {
+                                    alert('Failed to approve payment');
+                                  }
+                                }} style={{background:'#27ae60',color:'#fff',border:'none',borderRadius:4,padding:'4px 10px',cursor:'pointer',marginRight:8}}>Approve</button>
+                                <button onClick={async () => {
+                                  try {
+                                    await axios.patch(`${API_BASE}/orders/${order._id}/approve-payment`, { action: 'reject' }, { headers: { Authorization: `Bearer ${token}` } });
+                                    fetchOrders();
+                                  } catch (err) {
+                                    alert('Failed to reject payment');
+                                  }
+                                }} style={{background:'#e74c3c',color:'#fff',border:'none',borderRadius:4,padding:'4px 10px',cursor:'pointer'}}>Reject</button>
+                              </>
+                            ) : (
+                              <span style={{color:'#e67e22'}}>Not Approved</span>
+                            )
+                          ) : (
+                            <span style={{color:'#888'}}>N/A</span>
+                          )}</td>
+                          <td>{order.total || order.totalPrice || '-'}</td>
+                          <td>{order.createdAt ? new Date(order.createdAt).toLocaleString() : '-'}</td>
+                          <td>{order.shopId && order.shopId.shopName ? order.shopId.shopName : '-'}</td>
+                          <td>
+                            <button onClick={() => setViewingOrder(order)}>View</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                // --- New Card/Progress View ---
+                <div>
+                  {orders.map(order => (
+                    <div key={order._id} style={{border:'1px solid #eee',borderRadius:8,padding:16,marginBottom:18,background:'#fff'}}>
+                      {renderOrderProgress(order)}
+                      <div style={{marginTop:8}}>
+                        <b>Order ID:</b> {order._id}<br/>
+                        <b>Status:</b> {order.status || 'N/A'}<br/>
+                        <b>Total:</b> ${order.total || order.totalPrice || '-'}<br/>
+                        <b>Date:</b> {order.createdAt ? new Date(order.createdAt).toLocaleString() : '-'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Order detail modal (unchanged) */}
+              {viewingOrder && (
+                <div className="modal-overlay" style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(244, 246, 243, 0.4)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  <div className="modal-content" style={{background:'#f8f9fa',padding:32,borderRadius:12,minWidth:350,maxWidth:600,boxShadow:'0 4px 24px #26315955',position:'relative'}}>
+                    <h3 style={{color:'#263159'}}>Order Details</h3>
+                    <div style={{marginBottom:12,color:'#232946'}}>
+                      <b>Order ID:</b> {viewingOrder._id}<br/>
+                      <b>Status:</b> {viewingOrder.status}<br/>
+                      <b>Payment Status:</b> {viewingOrder.paymentStatus}<br/>
+                      <b>Payment Approval:</b> {viewingOrder.paymentApprovalStatus}<br/>
+                      <b>Total:</b> ${viewingOrder.total}<br/>
+                      <b>Buyer:</b> {viewingOrder.buyer?.username || viewingOrder.buyer?.email || viewingOrder.buyer}<br/>
+                      <b>Seller:</b> {viewingOrder.seller?.username || viewingOrder.seller?.email || viewingOrder.seller}<br/>
+                      <b>Shop:</b> {viewingOrder.shopId?.shopName || viewingOrder.shopId}<br/>
+                      <b>Created At:</b> {viewingOrder.createdAt ? new Date(viewingOrder.createdAt).toLocaleString() : '-'}<br/>
+                      <b>Products:</b>
+                      <ul style={{margin:'6px 0 10px 0'}}>
+                        {viewingOrder.products?.map((item, idx) => (
+                          <li key={idx}>{item.product?.name || item.product} x {item.quantity} @ {item.price}</li>
+                        ))}
+                      </ul>
+                      {viewingOrder.receiptUrl && (
+                        <a href={viewingOrder.receiptUrl.startsWith('http') ? viewingOrder.receiptUrl : `http://localhost:5000${viewingOrder.receiptUrl}`} target="_blank" rel="noopener noreferrer">
+                          <button style={{background:'#27ae60',color:'#fff',border:'none',borderRadius:4,padding:'6px 14px',cursor:'pointer',marginTop:8}}>View Receipt</button>
+                        </a>
+                      )}
+                    </div>
+                    <button onClick={() => setViewingOrder(null)} style={{marginTop:8}}>Close</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           {sidebarSection === 'shopRequests' && (
             <div>
               <h2>Shop Registration Requests</h2>
@@ -1202,27 +2189,6 @@ const shopRequestSubadmins = users.filter(u => u.role === 'subadmin' && u.active
                 </table>
               )}
               {shopRequestActionMsg && <div style={{marginTop: 12, color: '#27ae60'}}>{shopRequestActionMsg}</div>}
-              <h3>Pending Subadmin Users</h3>
-              <table className="future-table" style={{minWidth: 700}}>
-                <thead>
-                  <tr>
-                    <th>Username</th>
-                    <th>Email</th>
-                    <th>Role</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {shopRequestSubadmins.map(user => (
-                    <tr key={user._id}>
-                      <td>{user.username}</td>
-                      <td>{user.email}</td>
-                      <td>{user.role}</td>
-                      <td>{user.active ? 'Active' : 'Pending Approval'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
           )}
           {/* Shop Request Detail Modal */}
@@ -1235,7 +2201,7 @@ const shopRequestSubadmins = users.filter(u => u.role === 'subadmin' && u.active
                     {Object.entries(viewingRequest).map(([key, value]) => (
                       <tr key={key}>
                         <td style={{fontWeight:600,padding:'4px 8px',textTransform:'capitalize'}}>{key}</td>
-                        <td style={{padding:'4px 8px'}}>{String(value)}</td>
+                                               <td style={{padding:'4px 8px'}}>{String(value)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1245,6 +2211,14 @@ const shopRequestSubadmins = users.filter(u => u.role === 'subadmin' && u.active
             </div>
           )}
         </div>
+      </div>
+      {/* Real-time admin notifications (new paid orders) */}
+      <div style={{ display: 'none' }}>
+        {notifications.filter(n => n.type === 'new_paid_order').map(notif => (
+          <div key={notif.orderId} className="toast-notification" style={{position: 'absolute', top: 20, right: 20, background: '#27ae60', color: '#fff', padding: '10px 20px', borderRadius: 8, boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)', fontSize: 14, zIndex: 300}}>
+            New order received: <b>{notif.orderId}</b> - {notif.amount} ETB
+          </div>
+        ))}
       </div>
     </div>
   );

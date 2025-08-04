@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 
 const makes = ['Toyota', 'Honda', 'Ford', 'BMW', 'Mercedes'];
 const models = {

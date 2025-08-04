@@ -3,6 +3,7 @@ const User = require('../models/user');
 const ShopRequest = require('../models/shopRequest');
 // If you have an Order model, import it here
 // const Order = require('../models/order');
+const bcrypt = require('bcryptjs');
 
 // Mock: Replace with real order aggregation if you have an Order model
 async function getSalesSummary() {
@@ -93,9 +94,9 @@ exports.handleShopRequestAction = async (req, res) => {
         if (!request) return res.status(404).json({ message: 'Shop request not found.' });
         if (action === 'approve') {
             request.status = 'approved';
-            // Activate the subadmin user and ensure role is 'subadmin'
+            // Activate the subadmin user and ensure role is 'subadmin' and set approved to true
             if (request.userRef) {
-                await User.findByIdAndUpdate(request.userRef, { active: true, role: 'subadmin' });
+                await User.findByIdAndUpdate(request.userRef, { active: true, role: 'subadmin', approved: true });
             }
         } else if (action === 'reject') {
             request.status = 'rejected';
@@ -109,6 +110,34 @@ exports.handleShopRequestAction = async (req, res) => {
         request.updatedAt = new Date();
         await request.save();
         res.json({ message: `Shop request ${action}d.`, request });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+
+// Admin: Create a delivery person account
+exports.createDeliveryPerson = async (req, res) => {
+    try {
+        const { username, email, password } = req.body;
+        if (!username || !email || !password) {
+            return res.status(400).json({ message: 'All fields are required.' });
+        }
+        // Check if user already exists
+        const existing = await User.findOne({ $or: [{ username }, { email }] });
+        if (existing) {
+            return res.status(409).json({ message: 'Username or email already exists.' });
+        }
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const user = new User({
+            username,
+            email,
+            password: hashedPassword,
+            role: 'delivery',
+            active: true,
+            approved: true
+        });
+        await user.save();
+        res.status(201).json({ message: 'Delivery person account created.', user: { username, email, role: user.role } });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }

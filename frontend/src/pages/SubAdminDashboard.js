@@ -39,7 +39,7 @@ const SubAdminDashboard = () => {
   const [userMessage, setUserMessage] = useState('');
   const [managedProducts, setManagedProducts] = useState([]);
   // Subadmin login state
-  const [login, setLogin] = useState({ email: '', password: '' });
+  const [login, setLogin] = useState({ email: '', password: '', role: '' }); // Add role
   const [loginError, setLoginError] = useState('');
   const [loggingIn, setLoggingIn] = useState(false);
   const [showPassword, setShowPassword] = useState(false); // Show password state
@@ -149,6 +149,10 @@ const SubAdminDashboard = () => {
     if (userData && userData !== 'undefined') {
       try {
         parsed = JSON.parse(userData);
+        // If parsed is not an object or has no valid role, treat as not logged in
+        if (!parsed || typeof parsed !== 'object' || !parsed.role || typeof parsed.role !== 'string') {
+          parsed = null;
+        }
       } catch (e) {
         parsed = null;
       }
@@ -160,6 +164,12 @@ const SubAdminDashboard = () => {
       axios.get(`${API_BASE}/products?shopId=${parsed.shopId}`,
         { headers: { Authorization: `Bearer ${token}` } })
         .then(res => setProducts(res.data.filter(p => p.shopId === parsed.shopId)))
+        .catch(() => setProducts([]));
+    } else if (parsed && parsed.role === 'user') {
+      // Seller: fetch only their own products
+      const token = parsed.token;
+      axios.get(`${API_BASE}/products`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(res => setProducts(res.data.filter(p => p.owner === parsed._id && p.shopId === parsed.shopId)))
         .catch(() => setProducts([]));
     }
   }, [showEditModal, loginError, loggingIn]); // Add loginError and loggingIn to dependencies
@@ -312,22 +322,26 @@ const SubAdminDashboard = () => {
     const { name, value } = e.target;
     setLogin(l => ({ ...l, [name]: value }));
   };
-  const handleLogin = async e => {
+  const handleLoginSubmit = async e => {
     e.preventDefault();
     setLoggingIn(true);
     setLoginError('');
     try {
+      // Send role in login request
       const res = await axios.post(`${API_BASE}/auth/login`, login);
       const userObj = {
+        _id: res.data.user?._id,
         token: res.data.token,
-        role: res.data.role,
-        shopId: res.data.shopId ? res.data.shopId.toString() : null
+        role: res.data.user?.role || res.data.role || login.role, // fallback to selected role
+        shopId: res.data.user?.shopId || res.data.shopId || null,
+        username: res.data.user?.username || '',
+        email: res.data.user?.email || login.email
       };
       localStorage.setItem('user', JSON.stringify(userObj));
       setUser(userObj);
-      setLogin({ email: '', password: '' });
+      setLogin({ email: '', password: '', role: '' });
     } catch (err) {
-      setLoginError('Invalid sub-admin credentials');
+      setLoginError('Wrong credentials or role. Please check your email, password, and selected role.');
     }
     setLoggingIn(false);
   };
@@ -481,6 +495,9 @@ const SubAdminDashboard = () => {
   const [stockFilter, setStockFilter] = useState('all'); // all, low, out, in
   const [sortBy, setSortBy] = useState('name'); // name, price, stock
   const [sortDir, setSortDir] = useState('asc');
+  const [orderViewType, setOrderViewType] = useState('table');
+  const [orderStatusFilter, setOrderStatusFilter] = useState('all');
+  const [orderSortOrder, setOrderSortOrder] = useState('desc'); // 'desc' for newest first
 
   // --- Filtering and Sorting Logic ---
   const filteredProducts = products
@@ -858,27 +875,20 @@ const SubAdminDashboard = () => {
                   <p><b>Category:</b> {editProduct.category}</p>
                   <p><b>Price:</b> ${editProduct.price}</p>
                   <p><b>Stock:</b> {editProduct.stock}</p>
-                  <button onClick={() => setEditProduct(null)} style={{ background: '#636e72', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 18px', fontWeight: 600 }}>Close</button>
+                  <button onClick={() => setEditProduct(null)} style={{ background: '#636e72', color: '#fff', border: 'none', borderRadius: 4, padding: '8px 18px', fontWeight: 600 }}>Close</button>
                 </div>
               </div>
             )}
           </div>
         );
-      case 'sellers':
+      case 'sellers': {
         // --- Seller Management Features ---
-        // State for search/filter, pagination, product count, view/manage, reset password, status, confirmation dialogs
-        // ...all state and useEffect hooks are now at top level...
-
-        // Filtered sellers
         const filteredSellers = users.filter(u =>
           u.username.toLowerCase().includes(sellerSearch.toLowerCase()) ||
           u.email.toLowerCase().includes(sellerSearch.toLowerCase())
         );
-        // Pagination
         const totalPages = Math.ceil(filteredSellers.length / sellersPerPage);
         const pagedSellers = filteredSellers.slice((sellerPage - 1) * sellersPerPage, sellerPage * sellersPerPage);
-
-        // Reset seller password handler
         const handleResetSellerPassword = async (id) => {
           setResetSellerMsg('');
           try {
@@ -889,15 +899,10 @@ const SubAdminDashboard = () => {
             setResetSellerMsg('Error resetting password.');
           }
         };
-
-        // View/manage seller products handler
         const handleViewSellerProducts = async (seller) => {
           setViewSellerProducts(seller);
         };
-
-        // Seller status display
         const getSellerStatus = (u) => u.active ? 'Active' : 'Inactive';
-
         return (
           <div className="future-card" style={{padding: '1.5rem', marginBottom: 32}}>
             <div style={{fontWeight: 600, marginBottom: 12}}>My Sellers</div>
@@ -1036,7 +1041,8 @@ const SubAdminDashboard = () => {
             )}
           </div>
         );
-      case 'reports':
+      }
+      case 'reports': {
         // Calculate revenue for subadmin's products
         const totalRevenue = products.reduce((sum, p) => sum + (Number(p.revenue) || 0), 0);
         return (
@@ -1061,41 +1067,140 @@ const SubAdminDashboard = () => {
             </table>
           </div>
         );
-      case 'orders':
+      }
+      // --- Delivery Orders Section ---
+      case 'orders': {
         // Privilege check for seller
         const canViewOrders = user?.role === 'user' ? sellerPrivileges.canViewOrders : true;
         if (!canViewOrders) return <div style={{color: '#888', textAlign: 'center', padding: 32}}>You do not have privilege to view orders.</div>;
+        // --- Filtering and Sorting ---
+        let filteredOrders = orders;
+        if (orderStatusFilter !== 'all') {
+          filteredOrders = filteredOrders.filter(order => order.status === orderStatusFilter);
+        }
+        filteredOrders = [...filteredOrders].sort((a, b) => {
+          const dateA = new Date(a.createdAt || 0);
+          const dateB = new Date(b.createdAt || 0);
+          return orderSortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+        });
         return (
           <div style={{background: '#fff', borderRadius: 12, padding: '1.5rem', boxShadow: '0 2px 8px rgba(44,62,80,0.06)', marginBottom: 32}}>
-            <div style={{fontWeight: 600, marginBottom: 12}}>Orders</div>
-            {orders.length === 0 ? (
-              <div style={{color: '#888'}}>No orders found.</div>
-            ) : (
-              <table style={{width: '100%', borderCollapse: 'collapse', marginTop: 8}}>
+            <div style={{ fontWeight: 600, marginBottom: 12 }}>Orders</div>
+            <div style={{display:'flex',gap:16,alignItems:'center',marginBottom:16}}>
+              <button
+                onClick={() => setOrderViewType(v => v === 'table' ? 'card' : 'table')}
+                style={{padding:'8px 18px', borderRadius:6, border:'1px solid #3a6cf6', background:'#fff', color:'#3a6cf6', fontWeight:600, cursor:'pointer'}}
+              >
+                Switch to {orderViewType === 'table' ? 'Card View' : 'Table View'}
+              </button>
+              <label>Status:
+                <select value={orderStatusFilter} onChange={e => setOrderStatusFilter(e.target.value)} style={{marginLeft:8}}>
+                  <option value="all">All</option>
+                  <option value="pending">Pending</option>
+                  <option value="accepted">Accepted</option>
+                  <option value="handedover">Handed Over</option>
+                  <option value="deliveryreceived">Delivery Received</option>
+                  <option value="buyerreceived">Buyer Received</option>
+                  <option value="delivered">Delivered</option>
+                </select>
+              </label>
+              <label>Sort by:
+                <select value={orderSortOrder} onChange={e => setOrderSortOrder(e.target.value)} style={{marginLeft:8}}>
+                  <option value="desc">Newest First</option>
+                  <option value="asc">Oldest First</option>
+                </select>
+              </label>
+            </div>
+            {filteredOrders.length === 0 ? (
+              <div style={{ color: '#888' }}>No orders found.</div>
+            ) : orderViewType === 'table' ? (
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr style={{background: '#f4f4f4'}}>
-                    <th style={{padding: 8, border: '1px solid #eee'}}>Order ID</th>
-                    <th style={{padding: 8, border: '1px solid #eee'}}>Buyer</th>
-                    <th style={{padding: 8, border: '1px solid #eee'}}>Total</th>
-                    <th style={{padding: 8, border: '1px solid #eee'}}>Status</th>
-                    <th style={{padding: 8, border: '1px solid #eee'}}>Created</th>
+                  <tr style={{ background: '#f8faff' }}>
+                    <th style={{ padding: '10px 8px', textAlign: 'left' }}>Order ID</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'left' }}>Buyer</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'left' }}>Shop</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'left' }}>Status</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'left' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.map(order => (
-                    <tr key={order._id}>
-                      <td style={{padding: 8, border: '1px solid #eee'}}>{order._id}</td>
-                      <td style={{padding: 8, border: '1px solid #eee'}}>{order.buyer?.username || order.buyer?.email || 'N/A'}</td>
-                      <td style={{padding: 8, border: '1px solid #eee'}}>ETB {order.total?.toLocaleString?.() ?? 0}</td>
-                      <td style={{padding: 8, border: '1px solid #eee'}}>{order.status}</td>
-                      <td style={{padding: 8, border: '1px solid #eee'}}>{order.createdAt ? new Date(order.createdAt).toLocaleString() : ''}</td>
+                  {filteredOrders.map(order => (
+                    <tr key={order._id} style={{ borderBottom: '1px solid #eee' }}>
+                      <td style={{ padding: '8px' }}>{order._id}</td>
+                      <td style={{ padding: '8px' }}>{(() => {
+                        const b = order.buyer;
+                        if (typeof order.buyerName === 'string') return order.buyerName;
+                        if (typeof order.buyerId === 'string') return order.buyerId;
+                        if (b && typeof b === 'object') {
+                          if (typeof b.name === 'string') return b.name;
+                          if (typeof b.username === 'string') return b.username;
+                          if (typeof b.email === 'string') return b.email;
+                          return '[object]';
+                        }
+                        if (typeof b === 'string') return b;
+                        return 'N/A';
+                      })()}</td>
+                      <td style={{ padding: '8px' }}>{(() => {
+                        const s = order.shop;
+                        if (typeof s === 'object' && s !== null) {
+                          if (typeof s.shopName === 'string') return s.shopName;
+                          if (typeof s.name === 'string') return s.name;
+                          if (typeof s._id === 'string') return s._id;
+                          return '[object]';
+                        }
+                        if (typeof order.shopName === 'string') return order.shopName;
+                        if (typeof order.shopId === 'string') return order.shopId;
+                        if (typeof s === 'string') return s;
+                        return 'N/A';
+                      })()}</td>
+                      <td style={{ padding: '8px' }}>{order.status}</td>
+                      <td style={{ padding: '8px' }}>
+                        {order.status === 'accepted' || order.status === 'delivery_accepted' ? (
+                          <button
+                            onClick={async () => {
+                              const token = user.token;
+                              try {
+                                await axios.patch(`/api/orders/${order._id}/handedover`, {}, { headers: { Authorization: `Bearer ${token}` } });
+                                setOrders(orders => orders.map(o => o._id === order._id ? { ...o, status: 'handedover' } : o));
+                              } catch (err) {
+                                alert('Failed to hand over: ' + (err.response?.data?.error || err.message));
+                              }
+                            }}
+                            style={{ background: '#e74c3c', color: '#fff', border: 'none', borderRadius: 4, padding: '6px 14px', fontWeight: 600 }}
+                          >
+                            Hand Over
+                          </button>
+                        ) : order.status === 'handedover' ? (
+                          <button
+                            disabled
+                            style={{ background: '#00b894', color: '#fff', border: 'none', borderRadius: 4, padding: '6px 14px', fontWeight: 600 }}
+                          >
+                            Confirmed
+                          </button>
+                        ) : null}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+            ) : (
+              <div>
+                {filteredOrders.map(order => (
+                  <div key={order._id} style={{border:'1px solid #eee',borderRadius:8,padding:16,marginBottom:18,background:'#fff'}}>
+                    <div style={{marginTop:8}}>
+                      <b>Order ID:</b> {order._id}<br/>
+                      <b>Status:</b> {order.status || 'N/A'}<br/>
+                      <b>Total:</b> ${order.total || order.totalPrice || '-'}<br/>
+                      <b>Date:</b> {order.createdAt ? new Date(order.createdAt).toLocaleString() : '-'}
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         );
+      }
       case 'ratings':
         return (
           <div style={{background: '#fff', borderRadius: 12, padding: '1.5rem', boxShadow: '0 2px 8px rgba(44,62,80,0.06)', marginBottom: 32}}>
@@ -1149,6 +1254,7 @@ const SubAdminDashboard = () => {
               {/* Add/Edit Modal */}
               {showEditModal === 'add' && (
                 <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
+
                   <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 500, width: '95vw', borderRadius: 16, boxShadow: '0 8px 32px rgba(44,62,80,0.18)', padding: '2rem', position: 'relative' }}>
                     <button className="modal-close" onClick={() => setShowEditModal(false)} style={{ position: 'absolute', top: 18, right: 18, background: 'none', border: 'none', fontSize: 28, color: '#888', cursor: 'pointer', fontWeight: 700, zIndex: 10 }}>&times;</button>
                     <ProductForm user={user} onProductAdded={() => { setShowEditModal(false); setSection('products-managed'); }} />
@@ -1186,7 +1292,7 @@ const SubAdminDashboard = () => {
                     <p><b>Category:</b> {editProduct.category}</p>
                     <p><b>Price:</b> ${editProduct.price}</p>
                     <p><b>Stock:</b> {editProduct.stock}</p>
-                    <button onClick={() => setEditProduct(null)} style={{ background: '#636e72', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 18px', fontWeight: 600 }}>Close</button>
+                    <button onClick={() => setEditProduct(null)} style={{ background: '#636e72', color: '#fff', border: 'none', borderRadius: 4, padding: '8px 18px', fontWeight: 600 }}>Close</button>
                   </div>
                 </div>
               )}
@@ -1199,41 +1305,94 @@ const SubAdminDashboard = () => {
     }
   };
 
-  // Always show login if not subadmin or seller
-  if (!user || (user.role !== 'subadmin' && user.role !== 'seller')) {
+  // --- AUTH/ROLE GATE ---
+  const validRoles = ['subadmin', 'seller'];
+  const isLoggedIn = user && typeof user === 'object' && user.role && typeof user.role === 'string';
+  const hasValidRole = isLoggedIn && validRoles.includes(user.role);
+
+  // --- Render logic for authentication and role-based access control ---
+  if (!user) {
+    // Not authenticated: show login form
     return (
-      <div style={{maxWidth: 400, margin: '60px auto', background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(44,62,80,0.06)', padding: '2rem'}}>
-        <h2 style={{marginBottom: 24, textAlign: 'center'}}>Subadmin / Seller Login</h2>
-        <form onSubmit={handleLogin}>
-          <div style={{marginBottom: 16}}>
-            <label>Email</label>
-            <input type="email" name="email" value={login.email} onChange={handleLoginChange} required style={{width: '100%', padding: 8, borderRadius: 6, border: '1px solid #eee'}} />
+      <div className="login-container" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <form className="login-form" onSubmit={handleLoginSubmit} style={{ background: '#fff', padding: 32, borderRadius: 12, boxShadow: '0 2px 8px rgba(44,62,80,0.10)', minWidth: 320 }}>
+          <h2 style={{ marginBottom: 18 }}>Subadmin / Seller Login</h2>
+          <input
+            type="email"
+            name="email"
+            placeholder="Email"
+            value={login.email}
+            onChange={handleLoginChange}
+            required
+            style={{ marginBottom: 12, width: '100%' }}
+          />
+          <div style={{ position: 'relative', marginBottom: 12 }}>
+            <input
+              type={showPassword ? 'text' : 'password'}
+              name="password"
+              placeholder="Password"
+              value={login.password}
+              onChange={handleLoginChange}
+              required
+              style={{ width: '100%' }}
+            />
+            <span
+              onClick={() => setShowPassword(v => !v)}
+              style={{ position: 'absolute', right: 10, top: 10, cursor: 'pointer', color: '#888' }}
+              title={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? '🙈' : '👁️'}
+            </span>
           </div>
-          <div style={{marginBottom: 16}}>
-            <label>Password</label>
-            <input type={showPassword ? 'text' : 'password'} name="password" value={login.password} onChange={handleLoginChange} required style={{width: '100%', padding: 8, borderRadius: 6, border: '1px solid #eee'}} />
+          <select
+            name="role"
+            value={login.role}
+            onChange={handleLoginChange}
+            required
+            style={{ marginBottom: 16, width: '100%' }}
+          >
+            <option value="">Select Role</option>
+            <option value="subadmin">Subadmin</option>
+            <option value="seller">Seller</option>
+          </select>
+          {loginError && <div style={{ color: '#e74c3c', marginBottom: 10 }}>{loginError}</div>}
+          <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loggingIn}>
+            {loggingIn ? 'Logging in...' : 'Login'}
+          </button>
+          <div style={{ marginTop: 12 }}>
+            <span style={{ color: '#0984e3', cursor: 'pointer' }} onClick={() => setShowForgot(v => !v)}>
+              Forgot password?
+            </span>
           </div>
-          <div style={{marginBottom: 16}}>
-            <label>Role</label>
-            <select name="role" value={login.role || ''} onChange={handleLoginChange} required style={{width: '100%', padding: 8, borderRadius: 6, border: '1px solid #eee'}}>
-              <option value="">Select role</option>
-              <option value="subadmin">Subadmin</option>
-              <option value="seller">Seller</option>
-            </select>
-          </div>
-          {loginError && <div style={{color: 'red', marginBottom: 12}}>{loginError}</div>}
-          <button type="submit" className="button" style={{width: '100%', background: '#00b894', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 0', fontWeight: 600}} disabled={loggingIn}>{loggingIn ? 'Logging in...' : 'Login'}</button>
+          {showForgot && (
+            <form onSubmit={handleForgotSubmit} style={{ marginTop: 12 }}>
+              <input
+                type="email"
+                placeholder="Enter your email"
+                value={forgotEmail}
+                onChange={e => setForgotEmail(e.target.value)}
+                required
+                style={{ marginBottom: 8, width: '100%' }}
+              />
+              <button type="submit" className="btn btn-secondary" style={{ width: '100%' }}>Send Reset Link</button>
+              {forgotMsg && <div style={{ color: forgotMsg.startsWith('Error') ? '#e74c3c' : '#00b894', marginTop: 8 }}>{forgotMsg}</div>}
+            </form>
+          )}
         </form>
-        <div style={{marginTop: 16, textAlign: 'center'}}>
-          <button type="button" style={{background: 'none', border: 'none', color: '#0984e3', cursor: 'pointer'}} onClick={() => setShowForgot(true)}>Forgot password?</button>
+      </div>
+    );
+  }
+  if (user && !['subadmin', 'seller'].includes(user.role)) {
+    // Authenticated but wrong role: show error message
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8f8f8' }}>
+        <div style={{ background: '#fff', padding: 32, borderRadius: 12, boxShadow: '0 2px 8px rgba(44,62,80,0.10)', minWidth: 320, textAlign: 'center' }}>
+          <h2 style={{ color: '#e74c3c', marginBottom: 16 }}>Access Denied</h2>
+          <div style={{ color: '#e74c3c', marginBottom: 18, fontWeight: 500 }}>
+            Only subadmin and seller can access this page.
+          </div>
+          <button className="btn btn-secondary" onClick={handleLogout}>Logout</button>
         </div>
-        {showForgot && (
-          <form onSubmit={handleForgotSubmit} style={{marginTop: 16}}>
-            <input type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} placeholder="Enter your email" required style={{width: '100%', padding: 8, borderRadius: 6, border: '1px solid #eee', marginBottom: 8}} />
-            <button type="submit" className="button" style={{width: '100%', background: '#0984e3', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 0', fontWeight: 600}}>Send Reset Link</button>
-            {forgotMsg && <div style={{color: '#00b894', marginTop: 8}}>{forgotMsg}</div>}
-          </form>
-        )}
       </div>
     );
   }
@@ -1409,6 +1568,7 @@ const SubAdminDashboard = () => {
                               onClick={() => markNotificationRead(n.id)}
                             >
                               {!n.read && <span style={{width: 8, height: 8, background: '#0984e3', borderRadius: '50%', display: 'inline-block', marginRight: 6}} />}
+
                               <span>{n.message}</span>
                               <span style={{marginLeft: 'auto', fontSize: 11, color: '#aaa'}}>{n.createdAt ? new Date(n.createdAt).toLocaleString() : ''}</span>
                             </div>

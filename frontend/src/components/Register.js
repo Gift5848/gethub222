@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 const API_BASE = '/api/auth';
+const GOOGLE_MAPS_API_KEY = 'AIzaSyB8pbLVvoAFEkVCXyOiasOYZ36YEmdJwpU';
 
-const Register = ({ onSuccess, onSwitchToLogin }) => {
+const Register = ({ onSuccess, onSwitchToLogin, isModal }) => {
   const [registerType, setRegisterType] = useState('buyer'); // 'buyer' or 'shop'
   // Buyer (normal user) form
   const [formData, setFormData] = useState({
@@ -20,8 +21,8 @@ const Register = ({ onSuccess, onSwitchToLogin }) => {
     shopName: '',
     licenseCertificate: null, // file
     tin: '',
-    location: '',
-    address: '',
+    location: '', // coordinates
+    address: '', // human-readable address
     owner: '',
     email: '',
     phone: '',
@@ -29,8 +30,67 @@ const Register = ({ onSuccess, onSwitchToLogin }) => {
     confirmPassword: '',
     terms: false
   });
+  const [mapLoaded, setMapLoaded] = useState(false);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (registerType === 'shop') {
+      if (!window.google) {
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}`;
+        script.async = true;
+        script.onload = () => setMapLoaded(true);
+        document.body.appendChild(script);
+      } else {
+        setMapLoaded(true);
+      }
+    }
+  }, [registerType]);
+
+  useEffect(() => {
+    if (registerType === 'shop' && mapLoaded) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          initMap(latitude, longitude);
+        },
+        () => {
+          initMap(9.03, 38.74);
+        }
+      );
+    }
+    // eslint-disable-next-line
+  }, [registerType, mapLoaded]);
+
+  function initMap(lat, lng) {
+    const map = new window.google.maps.Map(document.getElementById('shop-map'), {
+      center: { lat, lng },
+      zoom: 15,
+    });
+    const marker = new window.google.maps.Marker({
+      position: { lat, lng },
+      map,
+      draggable: true,
+    });
+    setShopData((prev) => ({ ...prev, location: `${lat},${lng}` }));
+    getAddressFromLatLng(lat, lng);
+    marker.addListener('dragend', function (e) {
+      setShopData((prev) => ({ ...prev, location: `${e.latLng.lat()},${e.latLng.lng()}` }));
+      getAddressFromLatLng(e.latLng.lat(), e.latLng.lng());
+    });
+  }
+
+  function getAddressFromLatLng(lat, lng) {
+    const geocoder = new window.google.maps.Geocoder();
+    geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+      if (status === 'OK' && results[0]) {
+        setShopData((prev) => ({ ...prev, address: results[0].formatted_address }));
+      } else {
+        setShopData((prev) => ({ ...prev, address: '' }));
+      }
+    });
+  }
 
   const handleChange = (e) => {
     const { name, value, type, checked, files } = e.target;
@@ -87,7 +147,7 @@ const Register = ({ onSuccess, onSwitchToLogin }) => {
         return;
       }
       // Basic validation
-      if (!shopData.shopName || !shopData.licenseCertificate || !shopData.tin || !shopData.location || !shopData.address || !shopData.owner || !shopData.email || !shopData.phone) {
+      if (!shopData.shopName || !shopData.licenseCertificate || !shopData.tin || !shopData.address || !shopData.owner || !shopData.email || !shopData.phone) {
         setMessage('Please fill in all required fields and upload the license certificate.');
         setLoading(false);
         return;
@@ -119,24 +179,38 @@ const Register = ({ onSuccess, onSwitchToLogin }) => {
     }
   };
 
+  // Use a white card only if in modal mode, otherwise keep previous style
+  const cardStyle = isModal ? {
+    width: 400,
+    maxWidth: '95vw',
+    background: '#fff',
+    borderRadius: 18,
+    boxShadow: '0 4px 24px #dbeafe',
+    padding: '2.5rem 2rem 2rem 2rem',
+    fontFamily: 'Segoe UI, Poppins, Arial, sans-serif',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+  } : {
+    width: 1050,
+    maxWidth: '95vw',
+    minWidth: 800,
+    margin: '0 auto',
+    background: '#fff',
+    borderRadius: 24,
+    boxShadow: '0 4px 32px rgba(44,62,80,0.12)',
+    padding: '3.5rem 2.5rem 2.5rem 2.5rem',
+    fontFamily: 'Poppins, Arial, sans-serif',
+    position: 'relative',
+    minHeight: 600,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+  };
+
   return (
-    <div style={{
-      width: 1050,
-      maxWidth: '95vw',
-      minWidth: 800,
-      margin: '0 auto',
-      background: '#fff',
-      borderRadius: 24,
-      boxShadow: '0 4px 32px rgba(44,62,80,0.12)',
-      padding: '3.5rem 2.5rem 2.5rem 2.5rem',
-      fontFamily: 'Poppins, Arial, sans-serif',
-      position: 'relative',
-      minHeight: 600,
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-    }}>
+    <div style={cardStyle}>
       <h2 style={{
         textAlign: 'left',
         marginBottom: '2.5rem',
@@ -369,26 +443,10 @@ const Register = ({ onSuccess, onSwitchToLogin }) => {
               boxSizing: 'border-box',
             }}
           />
-          <label style={{ fontWeight: 700, color: '#333', marginBottom: 12, fontSize: '1.25rem', display: 'block' }}>Location</label>
-          <input
-            type="text"
-            name="location"
-            value={shopData.location}
-            onChange={handleChange}
-            required
-            style={{
-              width: '100%',
-              padding: '1.2rem',
-              borderRadius: 8,
-              border: '1.5px solid #e0e0e0',
-              fontSize: '1.15rem',
-              outline: 'none',
-              background: '#fff',
-              marginBottom: 32,
-              marginTop: 0,
-              boxSizing: 'border-box',
-            }}
-          />
+          <label style={{ fontWeight: 700, color: '#333', marginBottom: 12, fontSize: '1.25rem', display: 'block' }}>Shop Location (required)</label>
+          <div id="shop-map" style={{width:'100%', height:300, borderRadius:8, marginBottom:8}}></div>
+          <input value={shopData.address} readOnly style={{width:'100%', padding:8, borderRadius:4, background:'#f8f8f8', marginBottom:8}} placeholder="Select location on map" />
+          <input value={shopData.location} readOnly style={{width:'100%', padding:8, borderRadius:4, background:'#f8f8f8'}} placeholder="Coordinates" />
           <label style={{ fontWeight: 700, color: '#333', marginBottom: 12, fontSize: '1.25rem', display: 'block' }}>Address</label>
           <input
             type="text"
@@ -526,11 +584,11 @@ const Register = ({ onSuccess, onSwitchToLogin }) => {
             marginTop: 0,
             marginBottom: 32,
             cursor: loading ? 'not-allowed' : 'pointer',
-            opacity: shopData.shopName && shopData.licenseCertificate && shopData.tin && shopData.location && shopData.address && shopData.owner && shopData.email && shopData.phone && shopData.password && shopData.confirmPassword && shopData.terms ? 1 : 0.7,
+            opacity: shopData.shopName && shopData.licenseCertificate && shopData.tin && shopData.address && shopData.owner && shopData.email && shopData.phone && shopData.password && shopData.confirmPassword && shopData.terms ? 1 : 0.7,
             width: 120,
             alignSelf: 'flex-start',
             transition: 'background 0.2s',
-          }} disabled={!(shopData.shopName && shopData.licenseCertificate && shopData.tin && shopData.location && shopData.address && shopData.owner && shopData.email && shopData.phone && shopData.password && shopData.confirmPassword && shopData.terms) || loading}>
+          }} disabled={!(shopData.shopName && shopData.licenseCertificate && shopData.tin && shopData.address && shopData.owner && shopData.email && shopData.phone && shopData.password && shopData.confirmPassword && shopData.terms) || loading}>
             Register
           </button>
           {message && <div style={{ color: '#e74c3c', marginBottom: 18, textAlign: 'center', fontWeight: 600, fontSize: '1.1rem' }}>{message}</div>}

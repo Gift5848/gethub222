@@ -7,31 +7,28 @@ const Footer = () => (
         <h3 style={{ fontWeight: 700, marginBottom: 8, borderBottom: '2px solid #e74c3c', display: 'inline-block', paddingBottom: 2 }}>AutoParts Online</h3>
         <p style={{ margin: '10px 0 18px', color: '#e0e6ed', fontSize: 15 }}>Your trusted source for quality automotive spare parts with convenient online shopping and fast delivery.</p>
         <div style={{ display: 'flex', gap: 16 }}>
-          <a href="#" style={{ color: '#fff', fontSize: 22 }}><i className="fab fa-facebook"></i></a>
-          <a href="#" style={{ color: '#fff', fontSize: 22 }}><i className="fab fa-twitter"></i></a>
-          <a href="#" style={{ color: '#fff', fontSize: 22 }}><i className="fab fa-instagram"></i></a>
-          <a href="#" style={{ color: '#fff', fontSize: 22 }}><i className="fab fa-linkedin"></i></a>
+          {/* Social links: use button for # hrefs */}
+          <button type="button" style={{ color: '#fff', fontSize: 22, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}><i className="fab fa-facebook"></i></button>
+          <button type="button" style={{ color: '#fff', fontSize: 22, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}><i className="fab fa-twitter"></i></button>
+          <button type="button" style={{ color: '#fff', fontSize: 22, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}><i className="fab fa-instagram"></i></button>
+          <button type="button" style={{ color: '#fff', fontSize: 22, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}><i className="fab fa-linkedin"></i></button>
         </div>
       </div>
       <div style={{ flex: 1, minWidth: 180, textAlign: 'left' }}>
         <h3 style={{ fontWeight: 700, marginBottom: 8, borderBottom: '2px solid #e74c3c', display: 'inline-block', paddingBottom: 2 }}>Quick Links</h3>
         <ul style={{ listStyle: 'none', padding: 0, margin: 0, color: '#e0e6ed', fontSize: 15 }}>
+          {/* Replace # hrefs in list with buttons for accessibility */}
           <li><a href="/" style={{ color: '#fff', textDecoration: 'none' }}>Home</a></li>
           <li><a href="/products" style={{ color: '#fff', textDecoration: 'none' }}>Products</a></li>
           <li><a href="/about" style={{ color: '#fff', textDecoration: 'none' }}>About Us</a></li>
           <li><a href="/contact" style={{ color: '#fff', textDecoration: 'none' }}>Contact</a></li>
-          <li><a href="#" style={{ color: '#fff', textDecoration: 'none' }}>My Account</a></li>
-          <li><a href="#" style={{ color: '#fff', textDecoration: 'none' }}>Order Tracking</a></li>
-        </ul>
-      </div>
-      <div style={{ flex: 1, minWidth: 180, textAlign: 'left' }}>
-        <h3 style={{ fontWeight: 700, marginBottom: 8, borderBottom: '2px solid #e74c3c', display: 'inline-block', paddingBottom: 2 }}>Customer Service</h3>
-        <ul style={{ listStyle: 'none', padding: 0, margin: 0, color: '#e0e6ed', fontSize: 15 }}>
-          <li><a href="#" style={{ color: '#fff', textDecoration: 'none' }}>FAQs</a></li>
-          <li><a href="#" style={{ color: '#fff', textDecoration: 'none' }}>Shipping Policy</a></li>
-          <li><a href="#" style={{ color: '#fff', textDecoration: 'none' }}>Return Policy</a></li>
-          <li><a href="#" style={{ color: '#fff', textDecoration: 'none' }}>Privacy Policy</a></li>
-          <li><a href="#" style={{ color: '#fff', textDecoration: 'none' }}>Terms of Service</a></li>
+          <li><button type="button" style={{ color: '#fff', textDecoration: 'none', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>My Account</button></li>
+          <li><button type="button" style={{ color: '#fff', textDecoration: 'none', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>Order Tracking</button></li>
+          <li><button type="button" style={{ color: '#fff', textDecoration: 'none', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>FAQs</button></li>
+          <li><button type="button" style={{ color: '#fff', textDecoration: 'none', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>Shipping Policy</button></li>
+          <li><button type="button" style={{ color: '#fff', textDecoration: 'none', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>Return Policy</button></li>
+          <li><button type="button" style={{ color: '#fff', textDecoration: 'none', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>Privacy Policy</button></li>
+          <li><button type="button" style={{ color: '#fff', textDecoration: 'none', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>Terms of Service</button></li>
         </ul>
       </div>
       <div style={{ flex: 1, minWidth: 220, textAlign: 'left' }}>

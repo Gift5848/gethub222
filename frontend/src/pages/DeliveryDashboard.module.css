@@ -1,0 +1,97 @@
+/* Advanced styles for DeliveryDashboard */
+.dashboardContainer {
+  max-width: 950px;
+  margin: 2rem auto;
+  background: linear-gradient(120deg, #f8fafc 0%, #e0e7ef 100%);
+  border-radius: 16px;
+  box-shadow: 0 4px 24px #dbeafe;
+  padding: 32px 28px 40px 28px;
+  position: relative;
+  width: 97vw;
+  min-height: 85vh;
+  box-sizing: border-box;
+  font-size: 1.08rem;
+  font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
+}
+
+.statusBadge {
+  display: inline-block;
+  min-width: 90px;
+  padding: 4px 16px;
+  border-radius: 16px;
+  font-weight: 700;
+  color: #fff;
+  font-size: 1em;
+  text-transform: capitalize;
+  letter-spacing: 0.5px;
+  box-shadow: 0 1px 4px #e0e7ef;
+}
+
+.orderCard {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px #e0e7ef;
+  margin-bottom: 18px;
+  padding: 18px 20px 12px 20px;
+  transition: box-shadow 0.2s;
+  cursor: pointer;
+  border: 2px solid transparent;
+}
+.orderCard:hover {
+  box-shadow: 0 6px 24px #c7d2fe;
+  border: 2px solid #a5b4fc;
+}
+
+.analyticsPanel {
+  margin: 36px 0 0 0;
+  padding: 22px 18px;
+  background: linear-gradient(90deg, #e0e7ef 0%, #f8fafc 100%);
+  border-radius: 12px;
+  box-shadow: 0 1px 8px #e0e7ef;
+}
+
+.acceptBtn {
+  background: linear-gradient(90deg, #27ae60 60%, #43e97b 100%);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 20px;
+  font-weight: 700;
+  font-size: 1em;
+  margin-right: 10px;
+  box-shadow: 0 1px 4px #b7e4c7;
+  transition: background 0.2s;
+  cursor: pointer;
+}
+.acceptBtn:hover {
+  background: linear-gradient(90deg, #219150 60%, #43e97b 100%);
+}
+.rejectBtn {
+  background: linear-gradient(90deg, #e74c3c 60%, #ff7675 100%);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 20px;
+  font-weight: 700;
+  font-size: 1em;
+  box-shadow: 0 1px 4px #f8bbd0;
+  transition: background 0.2s;
+  cursor: pointer;
+}
+.rejectBtn:hover {
+  background: linear-gradient(90deg, #c0392b 60%, #ff7675 100%);
+}
+
+@media (max-width: 700px) {
+  .dashboardContainer {
+    padding: 10px 2vw 20px 2vw;
+    min-width: 0;
+    font-size: 0.98rem;
+  }
+  .orderCard {
+    padding: 10px 6px 8px 10px;
+  }
+  .analyticsPanel {
+    padding: 10px 6px;
+  }
+}

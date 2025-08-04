@@ -21,12 +21,17 @@ const Profile = () => {
         setLoading(false);
       })
       .catch(err => {
-        setError(
-          err.response?.data?.message ||
-          err.response?.data?.error ||
-          err.message ||
-          'Failed to load profile.'
-        );
+        // Show a friendly message for user not found
+        if (err.response?.data?.message === 'User not found.') {
+          setError('No user profile found. Please log in or register.');
+        } else {
+          setError(
+            err.response?.data?.message ||
+            err.response?.data?.error ||
+            err.message ||
+            'Failed to load profile.'
+          );
+        }
         setLoading(false);
       });
   }, []);

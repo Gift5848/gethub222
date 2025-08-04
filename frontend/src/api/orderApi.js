@@ -1,33 +1,26 @@
 import axios from 'axios';
 
-const API_BASE = '/api/orders';
-
-export const addToCart = async (productId, quantity) => {
-  const res = await axios.post(`${API_BASE}/cart/add`, { productId, quantity });
-  return res.data;
+// Place an order with all required fields
+export const placeOrder = async ({ cart, buyer, seller, paymentMethod, deliveryOption, deliveryLocation, shippingInfo, shippingMethod, shopLocation, shopAddress, token }) => {
+  const orderPayload = {
+    cart,
+    buyer,
+    seller,
+    paymentMethod,
+    deliveryOption,
+    deliveryLocation,
+    shippingInfo,
+    shippingMethod,
+    shopLocation,
+    shopAddress
+  };
+  return axios.post('http://localhost:5000/api/orders/place-order', orderPayload, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
 };
 
-export const getCart = async () => {
-  const res = await axios.get(`${API_BASE}/cart`);
-  return res.data;
-};
-
-export const removeFromCart = async (productId) => {
-  const res = await axios.post(`${API_BASE}/cart/remove`, { productId });
-  return res.data;
-};
-
-export const placeOrder = async (config = {}) => {
-  const res = await axios.post(`${API_BASE}/place-order`, undefined, config);
-  return res.data;
-};
-
-export const payOrder = async (orderId) => {
-  const res = await axios.post(`${API_BASE}/pay`, { orderId });
-  return res.data;
-};
-
-export const deliverOrder = async (orderId) => {
-  const res = await axios.post(`${API_BASE}/deliver`, { orderId });
-  return res.data;
+export const getMyOrders = async (token) => {
+  return axios.get('http://localhost:5000/api/orders/my', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
 };

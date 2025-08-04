@@ -1,37 +1,24 @@
 import React from 'react';
-import { Route, Redirect } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 
-// Helper to get user role and status from localStorage or context (customize as needed)
-function getUserStatus() {
+// Helper to get user role from localStorage or context (customize as needed)
+function getUserRole() {
   try {
     const user = JSON.parse(localStorage.getItem('user'));
-    return {
-      role: user?.role,
-      active: user?.active,
-      approved: user?.approved
-    };
+    return user?.role;
   } catch {
-    return {};
+    return null;
   }
 }
 
 // PrivateRoute for seller
-const PrivateRoute = ({ component: Component, allowedRoles = ['seller'], requireActive = false, requireApproved = false, ...rest }) => (
-  <Route
-    {...rest}
-    render={props => {
-      const { role, active, approved } = getUserStatus();
-      if (
-        allowedRoles.includes(role) &&
-        (!requireActive || active === true) &&
-        (!requireApproved || approved === true)
-      ) {
-        return <Component {...props} />;
-      } else {
-        return <Redirect to={role === 'subadmin' ? '/pending-approval' : '/login'} />;
-      }
-    }}
-  />
-);
+const PrivateRoute = ({ element, allowedRoles = ['seller'] }) => {
+  const role = getUserRole();
+  if (allowedRoles.includes(role)) {
+    return element;
+  } else {
+    return <Navigate to="/login" replace />;
+  }
+};
 
 export default PrivateRoute;

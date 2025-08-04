@@ -1,0 +1,114 @@
+.chat-inbox-container {
+  max-width: 600px;
+  margin: 40px auto;
+  padding: 24px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 16px #eee;
+  transition: box-shadow 0.2s;
+}
+
+.chat-inbox-container h2 {
+  margin-bottom: 24px;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #222c36;
+}
+
+.chat-inbox-search {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #eee;
+  margin-bottom: 18px;
+  font-size: 16px;
+  background: #f8f9fa;
+  transition: border 0.2s;
+}
+.chat-inbox-search:focus {
+  border: 1.5px solid #e74c3c;
+  outline: none;
+}
+
+.chat-inbox-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.chat-inbox-item {
+  padding: 16px 0;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.chat-inbox-item:hover {
+  background: #f7f7fa;
+}
+
+.chat-inbox-item.unread {
+  background: #f9f6f2;
+  font-weight: 800;
+  color: #222c36;
+}
+.chat-inbox-item.unread .chat-inbox-username,
+.chat-inbox-item.unread .chat-inbox-message {
+  font-weight: 900;
+  color: #222c36;
+}
+
+.chat-inbox-item .chat-inbox-username {
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.1rem;
+  color: #222c36;
+}
+
+.chat-inbox-item .chat-inbox-unread {
+  background: #e74c3c;
+  color: #fff;
+  border-radius: 8px;
+  font-size: 12px;
+  padding: 2px 8px;
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+.chat-inbox-item .chat-inbox-product {
+  font-size: 13px;
+  color: #888;
+}
+
+.chat-inbox-item .chat-inbox-message {
+  font-size: 14px;
+  margin-top: 4px;
+  color: #444;
+  font-weight: 400;
+}
+
+.chat-inbox-item.unread .chat-inbox-message, .chat-inbox-item[style*='font-weight:800'] .chat-inbox-message {
+  font-weight: 700;
+}
+
+.chat-inbox-unread {
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.chat-inbox-item .chat-inbox-date {
+  font-size: 11px;
+  color: #bbb;
+}
+
+@media (max-width: 700px) {
+  .chat-inbox-container {
+    max-width: 98vw;
+    padding: 10px;
+  }
+}

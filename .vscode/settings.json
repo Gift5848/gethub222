@@ -1,4 +1,4 @@
 {
-    "typescript.tsserver.maxTsServerMemory": 5000,
+    "typescript.tsserver.maxTsServerMemory": 7000,
     "typescript.tsserver.nodePath": "node"
 }

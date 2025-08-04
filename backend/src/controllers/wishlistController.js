@@ -34,3 +34,13 @@ exports.removeFromWishlist = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+// Remove all products from wishlist
+exports.clearWishlist = async (req, res) => {
+  try {
+    await User.findByIdAndUpdate(req.user._id, { $set: { wishlist: [] } });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};

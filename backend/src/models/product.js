@@ -23,7 +23,8 @@ const productSchema = new mongoose.Schema({
     paymentMethod: { type: String },
     paymentCode: { type: String },
     postFee: { type: Number, default: 0 },
-    seller: { type: mongoose.Schema.Types.ObjectId, ref: 'User' } // New field added
+    seller: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // New field added
+    sellerId: { type: String, required: true } // Unique seller string ID (e.g., <shopId>-seN)
 });
 
 module.exports = mongoose.model('Product', productSchema);

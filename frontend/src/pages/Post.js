@@ -15,30 +15,29 @@ function StaticModal({ children, onClose }) {
     document.body.style.userSelect = 'none';
   };
 
-  const handleDrag = (e) => {
+  // Move handleDrag inside useEffect or wrap with useCallback
+  const handleDrag = React.useCallback((e) => {
     if (!dragging) return;
     const deltaY = e.clientY - startY;
     contentRef.current.scrollTop = startScroll + deltaY * 2; // Adjust scroll speed as needed
-  };
+  }, [dragging, startY, startScroll]);
 
-  const handleDragEnd = () => {
-    setDragging(false);
-    document.body.style.userSelect = '';
-  };
-
+  // Move handleDragEnd inside useEffect to avoid changing dependencies on every render
   React.useEffect(() => {
+    const handleDragEnd = () => {
+      setDragging(false);
+      window.removeEventListener('mousemove', handleDrag);
+      window.removeEventListener('mouseup', handleDragEnd);
+    };
     if (dragging) {
       window.addEventListener('mousemove', handleDrag);
       window.addEventListener('mouseup', handleDragEnd);
-    } else {
-      window.removeEventListener('mousemove', handleDrag);
-      window.removeEventListener('mouseup', handleDragEnd);
     }
     return () => {
       window.removeEventListener('mousemove', handleDrag);
       window.removeEventListener('mouseup', handleDragEnd);
     };
-  }, [dragging]);
+  }, [dragging, handleDrag]);
 
   return (
     <div
