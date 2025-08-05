@@ -33,13 +33,23 @@ router.post('/chapa', async (req, res) => {
 });
 
 // Chapa payment webhook/callback endpoint
-router.post('/chapa/webhook', async (req, res) => {
+router.post('/callback/chapa/webhook', async (req, res) => {
   // Chapa sends payment status updates here
   const { event, data } = req.body;
   if (!data || !data.tx_ref) {
     return res.status(400).json({ error: 'Missing tx_ref in webhook data' });
   }
   try {
+    // Log incoming webhook payload for debugging
+    console.log('Chapa Webhook Received:', JSON.stringify(req.body));
+
+    // Chapa signature verification (optional, recommended)
+    const chapaSignature = req.headers['chapa-signature'];
+    const expectedSignature = process.env.CHAPA_WEBHOOK_SECRET; // Set this in your .env
+    if (expectedSignature && chapaSignature !== expectedSignature) {
+      return res.status(401).json({ error: 'Invalid Chapa signature' });
+    }
+
     // Find the order by tx_ref (assuming tx_ref is stored as order _id or a field in Order)
     const Order = require('../models/order');
     const User = require('../models/user');
@@ -47,6 +57,12 @@ router.post('/chapa/webhook', async (req, res) => {
     if (!order) {
       return res.status(404).json({ error: 'Order not found for tx_ref' });
     }
+
+    // Idempotency: avoid double-processing
+    if (order.paymentStatus === 'paid') {
+      return res.json({ success: true, message: 'Order already marked as paid' });
+    }
+
     // Update paymentStatus based on Chapa event
     let notificationType = '';
     if (event === 'charge.completed' && data.status === 'success') {

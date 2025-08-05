@@ -41,10 +41,16 @@ const PaymentSuccess = () => {
           setStatus('error');
           clearInterval(interval);
         }
+        // Extra debug: log when polling times out
+        if (attempts === maxAttempts) {
+          console.error('[PaymentSuccess Poll] Timed out after', maxAttempts, 'attempts. Last response:', data);
+        }
       } catch (err) {
         setError('Failed to check payment status.');
         setStatus('error');
         clearInterval(interval);
+        // Extra debug: log fetch error
+        console.error('[PaymentSuccess Poll] Fetch error:', err);
       }
     }, 2000);
     return () => clearInterval(interval);

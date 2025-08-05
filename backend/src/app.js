@@ -63,6 +63,9 @@ app.get('/api/messages/unread-count', authMiddleware, async (req, res) => {
 // Make io accessible throughout the app
 app.set('io', io);
 
+// In-memory store for delivery locations
+const deliveryLocations = {};
+
 io.on('connection', (socket) => {
   console.log('A user connected to Socket.IO');
 
@@ -70,6 +73,15 @@ io.on('connection', (socket) => {
   socket.on('join', (userId) => {
     if (userId) {
       socket.join(userId);
+    }
+  });
+
+  // Delivery person real-time location tracking
+  socket.on('delivery_location', (data) => {
+    if (data && data.userId && data.lat && data.lng) {
+      deliveryLocations[data.userId] = { lat: data.lat, lng: data.lng, updated: Date.now() };
+      // Broadcast to all (or restrict to admin/shop rooms as needed)
+      io.emit('delivery_location_update', { userId: data.userId, lat: data.lat, lng: data.lng });
     }
   });
 
@@ -123,6 +135,19 @@ io.on('connection', (socket) => {
       }
     } catch (e) {
       console.log('messageDelivered error:', e);
+    }
+  });
+
+  // On admin/shop join, send all delivery locations
+  socket.on('join_admin', () => {
+    socket.emit('all_delivery_locations', deliveryLocations);
+  });
+  // On delivery location update, also emit all locations to admin/shop
+  socket.on('delivery_location', (data) => {
+    if (data && data.userId && data.lat && data.lng) {
+      deliveryLocations[data.userId] = { lat: data.lat, lng: data.lng, updated: Date.now() };
+      io.emit('delivery_location_update', { userId: data.userId, lat: data.lat, lng: data.lng });
+      io.emit('all_delivery_locations', deliveryLocations);
     }
   });
 

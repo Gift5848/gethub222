@@ -211,6 +211,7 @@ const Register = ({ onSuccess, onSwitchToLogin, isModal }) => {
 
   return (
     <div style={cardStyle}>
+      <img src="/mekina-mart-logo.png.png" alt="Mekina Mart Logo" style={{ height: 70, marginBottom: 18, marginTop: -10 }} />
       <h2 style={{
         textAlign: 'left',
         marginBottom: '2.5rem',

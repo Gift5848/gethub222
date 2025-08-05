@@ -144,7 +144,7 @@ const SubAdminDashboard = () => {
 
   useEffect(() => {
     // Robustly parse user from localStorage
-    let userData = localStorage.getItem('user');
+    let userData = localStorage.getItem('subadmin_user');
     let parsed = null;
     if (userData && userData !== 'undefined') {
       try {
@@ -230,7 +230,7 @@ const SubAdminDashboard = () => {
   const handleDelete = async (productId) => {
     if (!window.confirm('Are you sure you want to delete this product?')) return;
     try {
-      const userData = localStorage.getItem('user');
+      const userData = localStorage.getItem('subadmin_user');
       const token = userData ? JSON.parse(userData).token : '';
       await axios.delete(`${API_BASE}/products/${productId}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -338,6 +338,8 @@ const SubAdminDashboard = () => {
         email: res.data.user?.email || login.email
       };
       localStorage.setItem('user', JSON.stringify(userObj));
+      localStorage.setItem('subadmin_user', JSON.stringify(userObj));
+      localStorage.setItem('subadmin_token', userObj.token);
       setUser(userObj);
       setLogin({ email: '', password: '', role: '' });
     } catch (err) {
@@ -528,7 +530,7 @@ const SubAdminDashboard = () => {
     // Optionally fetch latest product data if not already loaded
     if (!product.stockHistory) {
       try {
-        const userData = localStorage.getItem('user');
+        const userData = localStorage.getItem('subadmin_user');
         const token = userData ? JSON.parse(userData).token : '';
         const res = await axios.get(`${API_BASE}/products/${product._id}`,
           { headers: { Authorization: `Bearer ${token}` } });
@@ -1251,6 +1253,7 @@ const SubAdminDashboard = () => {
                   </tbody>
                 </table>
               )}
+             
               {/* Add/Edit Modal */}
               {showEditModal === 'add' && (
                 <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
@@ -1316,6 +1319,7 @@ const SubAdminDashboard = () => {
     return (
       <div className="login-container" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <form className="login-form" onSubmit={handleLoginSubmit} style={{ background: '#fff', padding: 32, borderRadius: 12, boxShadow: '0 2px 8px rgba(44,62,80,0.10)', minWidth: 320 }}>
+          <img src="/mekina-mart-logo.png.png" alt="Mekina Mart Logo" style={{ height: 70, marginBottom: 18, marginTop: -10, display: 'block', marginLeft: 'auto', marginRight: 'auto' }} />
           <h2 style={{ marginBottom: 18 }}>Subadmin / Seller Login</h2>
           <input
             type="email"

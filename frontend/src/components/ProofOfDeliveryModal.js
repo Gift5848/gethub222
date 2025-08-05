@@ -3,11 +3,13 @@ import React, { useRef, useState } from 'react';
 const ProofOfDeliveryModal = ({ order, onClose, onSubmit }) => {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [error, setError] = useState('');
   const inputRef = useRef();
 
   const handleFileChange = e => {
     const f = e.target.files[0];
     setFile(f);
+    setError('');
     if (f) {
       const reader = new FileReader();
       reader.onload = e2 => setPreview(e2.target.result);
@@ -19,7 +21,11 @@ const ProofOfDeliveryModal = ({ order, onClose, onSubmit }) => {
 
   const handleSubmit = e => {
     e.preventDefault();
-    if (file) onSubmit(file);
+    if (!file) {
+      setError('Please select an image before submitting.');
+      return;
+    }
+    onSubmit(file);
   };
 
   if (!order) return null;
@@ -31,7 +37,8 @@ const ProofOfDeliveryModal = ({ order, onClose, onSubmit }) => {
         <div style={{marginBottom:12}}><strong>Order ID:</strong> {order._id}</div>
         <input type="file" accept="image/*" ref={inputRef} onChange={handleFileChange} required style={{marginBottom:12}} />
         {preview && <img src={preview} alt="Preview" style={{maxWidth:'100%',maxHeight:180,marginBottom:12,borderRadius:6}} />}
-        <button type="submit" style={{background:'#232946',color:'#fff',border:'none',borderRadius:6,padding:'8px 20px',fontWeight:600,cursor:'pointer'}}>Submit</button>
+        {error && <div style={{color:'red',marginBottom:12}}>{error}</div>}
+        <button type="submit" disabled={!file} style={{background:'#232946',color:'#fff',border:'none',borderRadius:6,padding:'8px 20px',fontWeight:600,cursor:file?'pointer':'not-allowed',opacity:file?1:0.6}}>Submit</button>
       </form>
     </div>
   );

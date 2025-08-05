@@ -57,8 +57,9 @@ const ProductList = ({ filters = {}, searchTrigger, onAddToCart, onCartCountChan
     { value: 'newest', label: 'Newest' },
   ];
 
-  // Filter and sort products for demo (replace with backend sort/filter if available)
-  let filtered = products;
+  // Defensive logging and fallback for products
+  console.log('products:', products);
+  let filtered = Array.isArray(products) ? products : [];
   if (category !== 'all' && category !== 'All Categories') {
     filtered = filtered.filter(p => (p.category || '').toLowerCase().includes(category.toLowerCase()));
   }

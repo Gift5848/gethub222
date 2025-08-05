@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import Footer from '../components/Footer';
 import ProductList from '../components/ProductList';
 import Cart from '../components/Cart';
@@ -9,6 +10,22 @@ const Home = ({ onAddToCart, cartCount, setCartCount }) => {
     const [filters, setFilters] = useState({ make: '', model: '', year: '', search: '' });
     const [searchTrigger, setSearchTrigger] = useState(0);
     const [showCart, setShowCart] = useState(false);
+    const location = useLocation();
+
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        if (params.get('scroll') === 'products') {
+            setTimeout(() => {
+                const el = document.getElementById('products-section');
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth' });
+                }
+            }, 100);
+        } else {
+            // Scroll to top if not scrolling to products
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }, [location]);
 
     const handleSearch = () => {
         setSearchTrigger(prev => prev + 1);

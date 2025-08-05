@@ -18,7 +18,9 @@ const DeliveryDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [statusUpdate, setStatusUpdate] = useState({});
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    return JSON.parse(localStorage.getItem('delivery_user')) || null;
+  });
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -33,7 +35,13 @@ const DeliveryDashboard = () => {
 
   // Fetch orders function (keep as fallback/manual refresh)
   const fetchOrders = () => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('delivery_token');
+    if (!token) {
+      setError('No delivery token found. Please log in as a delivery user.');
+      setLoading(false);
+      navigate('/delivery-login');
+      return;
+    }
     axios.get('/api/orders/delivery', {
       headers: { Authorization: `Bearer ${token}` }
     })
@@ -45,8 +53,15 @@ const DeliveryDashboard = () => {
         setOrders(res.data);
       })
       .catch(err => {
-        const msg = err.response?.data?.error || err.message || 'Failed to load orders.';
-        setError(msg);
+        // Always redirect to login on 400/401 error
+        if (err.response && (err.response.status === 400 || err.response.status === 401)) {
+          localStorage.removeItem('delivery_token');
+          localStorage.removeItem('delivery_user');
+          navigate('/delivery-login');
+        } else {
+          const msg = err.response?.data?.error || err.message || 'Failed to load orders.';
+          setError(msg);
+        }
       })
       .finally(() => setLoading(false));
   };
@@ -89,7 +104,7 @@ const DeliveryDashboard = () => {
   };
 
   const updateOrder = async (orderId) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('delivery_token');
     try {
       await axios.patch(`/api/orders/${orderId}`, {
         status: statusUpdate[orderId]
@@ -112,7 +127,7 @@ const DeliveryDashboard = () => {
   // Proof of delivery upload handler
   const handleProofSubmit = async (file) => {
     if (!showProofModal) return;
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('delivery_token');
     const formData = new FormData();
     formData.append('proof', file);
     try {
@@ -127,6 +142,9 @@ const DeliveryDashboard = () => {
     }
   };
 
+  // Add sort state for order list
+  const [orderSortOrder, setOrderSortOrder] = useState('desc'); // 'desc' for newest first
+
   // Filtering and search
   const filteredOrders = orders.filter(order => {
     const matchesStatus = filter === 'all' || order.status === filter;
@@ -135,6 +153,13 @@ const DeliveryDashboard = () => {
       order._id.toLowerCase().includes(search.toLowerCase()) ||
       (order.buyer?.username && order.buyer.username.toLowerCase().includes(search.toLowerCase()));
     return matchesStatus && matchesSearch;
+  });
+
+  // Sort filtered orders by date
+  const sortedOrders = [...filteredOrders].sort((a, b) => {
+    const dateA = new Date(a.createdAt || 0);
+    const dateB = new Date(b.createdAt || 0);
+    return orderSortOrder === 'desc' ? dateB - dateA : dateA - dateB;
   });
 
   // --- Robust map: filter for valid coordinates, with fallback geocoding for missing lat/lng ---
@@ -230,9 +255,6 @@ const DeliveryDashboard = () => {
   const totalDelivered = deliveredOrders.length;
   const lastDelivered = deliveredOrders.length ? new Date(Math.max(...deliveredOrders.map(o => new Date(o.createdAt)))).toLocaleString() : 'N/A';
 
-  if (loading) return <div>Loading assigned orders...</div>;
-  if (error) return <div>{error}</div>;
-
   // --- Delivery Progress Bar (reuse from AdminPage.js) ---
   const renderOrderProgress = (order) => {
     return (
@@ -251,12 +273,48 @@ const DeliveryDashboard = () => {
     );
   };
 
+  // --- Real-time geolocation tracking for delivery person ---
+  useEffect(() => {
+    if (!('geolocation' in navigator) || !socketRef.current) return;
+    let watchId;
+    function emitLocation(position) {
+      const { latitude, longitude } = position.coords;
+      socketRef.current.emit('delivery_location', {
+        lat: latitude,
+        lng: longitude,
+        userId: user?._id || (user && user.id) || localStorage.getItem('delivery_user_id'),
+      });
+    }
+    watchId = navigator.geolocation.watchPosition(emitLocation, (err) => {}, { enableHighAccuracy: true });
+    return () => {
+      if (watchId) navigator.geolocation.clearWatch(watchId);
+    };
+  }, [user]);
+
+  // --- Listen for real-time delivery location updates ---
+  const [deliveryLocations, setDeliveryLocations] = useState({});
+  useEffect(() => {
+    if (!socketRef.current) return;
+    const handler = (data) => {
+      setDeliveryLocations(prev => ({ ...prev, [data.userId]: { lat: data.lat, lng: data.lng } }));
+    };
+    socketRef.current.on('delivery_location_update', handler);
+    return () => {
+      socketRef.current.off('delivery_location_update', handler);
+    };
+  }, []);
+
   return (
     <div className={styles.dashboardContainer}>
       <DeliveryHeader onLogout={handleLogout} user={user} />
       <button onClick={() => setShowProfile(true)} style={{position:'relative',top:0,right:0,background:'#232946',color:'#fff',border:'none',borderRadius:6,padding:'6px 16px',fontWeight:600,cursor:'pointer',zIndex:1}}>My Profile</button>
       {/* Map View */}
-      <DeliveryMap orders={mapOrders} onSelectOrder={setSelectedOrder} />
+      <DeliveryMap
+        orders={mapOrders}
+        onSelectOrder={setSelectedOrder}
+        deliveryLocations={deliveryLocations}
+        showDeliveryPopups={true}
+      />
       {/* Warn if any orders skipped from map */}
       {skippedOrdersCount > 0 && (
         <div style={{color:'#b71c1c',background:'#fff3e0',padding:'8px 16px',borderRadius:6,margin:'8px 0'}}>
@@ -288,10 +346,16 @@ const DeliveryDashboard = () => {
           onChange={e => setSearch(e.target.value)}
           style={{padding:'4px 10px',borderRadius:4,border:'1px solid #ccc',minWidth:180}}
         />
+        <label style={{marginLeft:8}}>Sort by:
+          <select value={orderSortOrder} onChange={e => setOrderSortOrder(e.target.value)} style={{marginLeft:8}}>
+            <option value="desc">Newest First</option>
+            <option value="asc">Oldest First</option>
+          </select>
+        </label>
       </div>
       {/* Orders List */}
       <ul style={{listStyle: 'none', padding: 0, margin: 0}}>
-        {filteredOrders.map(order => (
+        {sortedOrders.map(order => (
           <li key={order._id} className={styles.orderCard} onClick={() => setSelectedOrder(order)}>
             <div style={{display:'flex',alignItems:'center',gap:8,margin:'8px 0'}}>
               <span className={styles.statusBadge} style={{background:
@@ -329,7 +393,7 @@ const DeliveryDashboard = () => {
                 <button className={styles.acceptBtn}
                   onClick={async e => {
                     e.stopPropagation();
-                    const token = localStorage.getItem('token');
+                    const token = localStorage.getItem('delivery_token');
                     try {
                       await axios.post(`/api/orders/${order._id}/accept`, {}, { headers: { Authorization: `Bearer ${token}` } });
                       setOrders(orders => orders.map(o => o._id === order._id ? { ...o, status: 'delivery_accepted' } : o));
@@ -342,7 +406,7 @@ const DeliveryDashboard = () => {
                 <button className={styles.rejectBtn}
                   onClick={async e => {
                     e.stopPropagation();
-                    const token = localStorage.getItem('token');
+                    const token = localStorage.getItem('delivery_token');
                     try {
                       await axios.post(`/api/orders/${order._id}/reject`, {}, { headers: { Authorization: `Bearer ${token}` } });
                       setOrders(orders => orders.filter(o => o._id !== order._id));
@@ -356,17 +420,14 @@ const DeliveryDashboard = () => {
             )}
             {/* Mark as Delivered button for handedover orders */}
             {order.status === 'handedover' && user && user.username && (
-              <button onClick={async (e) => {
-                e.stopPropagation();
-                const token = localStorage.getItem('token');
-                try {
-                  await axios.patch(`/api/orders/${order._id}/delivered`, {}, { headers: { Authorization: `Bearer ${token}` } });
-                  setOrders(orders => orders.map(o => o._id === order._id ? { ...o, status: 'delivered' } : o));
-                  setToast('Order marked as delivered.');
-                } catch (err) {
-                  setToast('Failed to mark as delivered: ' + (err.response?.data?.error || err.message));
-                }
-              }} className={styles.acceptBtn} style={{marginTop:8}}>Mark as Delivered</button>
+              <button
+                onClick={e => {
+                  e.stopPropagation();
+                  setShowProofModal(order); // Open proof modal instead of direct PATCH
+                }}
+                className={styles.acceptBtn}
+                style={{marginTop:8}}
+              >Mark as Delivered (Upload Proof)</button>
             )}
             {/* Delivery Received button for handedover orders */}
             {order.status === 'handedover' && (
@@ -445,7 +506,11 @@ const DeliveryDashboard = () => {
       <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />
       {showProfile && <DeliveryProfileModal user={user} onClose={() => setShowProfile(false)} />}
       {/* Proof of Delivery Modal */}
-      <ProofOfDeliveryModal order={showProofModal} onClose={() => setShowProofModal(null)} onSubmit={handleProofSubmit} />
+      <ProofOfDeliveryModal
+        order={showProofModal}
+        onClose={() => setShowProofModal(null)}
+        onSubmit={handleProofSubmit}
+      />
       {/* Toast notification */}
       {toast && (
         <div style={{position:'fixed',top:24,right:24,background:'#232946',color:'#fff',padding:'12px 24px',borderRadius:8,zIndex:4000,boxShadow:'0 2px 8px #aaa',display:'flex',alignItems:'center',gap:12}}>
@@ -477,15 +542,8 @@ const DeliveryDashboard = () => {
           <strong>Delivered Orders:</strong>
           <ul style={{marginTop:8}}>
             {deliveredOrders.map(order => (
-              <li key={order._id} style={{marginBottom:6}}>
-                <span>Order ID: {order._id}</span>
-                {order.proofOfDelivery && (
-                  <span> | <a href={order.proofOfDelivery} target="_blank" rel="noopener noreferrer">Proof</a></span>
-                )}
-                <span> | {order.createdAt ? new Date(order.createdAt).toLocaleString() : ''}</span>
-              </li>
+              <li key={order._id}>{order._id} - {order.createdAt ? new Date(order.createdAt).toLocaleString() : ''}</li>
             ))}
-            {deliveredOrders.length === 0 && <li>No delivered orders yet.</li>}
           </ul>
         </div>
       </div>

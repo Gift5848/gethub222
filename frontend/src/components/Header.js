@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import { io } from 'socket.io-client';
 
 const Header = ({ onLoginClick, onRegisterClick, onCartClick, onCartCount, onChatClick }) => {
@@ -172,13 +172,13 @@ const Header = ({ onLoginClick, onRegisterClick, onCartClick, onCartCount, onCha
   };
 
   return (
-    <header style={{ background: 'linear-gradient(90deg, #c0c0c0 0%, #ad5a5a 100%)', color: '#fff', padding: 0, boxShadow: '0 2px 8px #23232322', position: 'relative', zIndex: 100 }}>
+    <header style={{ background: 'linear-gradient(90deg, #c0c0c0 0%, #ad5a5a 100%)', color: '#fff', padding: 0, boxShadow: '0 2px 8px #23232322', position: 'sticky', top: 0, zIndex: 1000 }}>
       <div style={{ display: 'flex', alignItems: 'center', padding: '0.5rem 2vw', justifyContent: 'space-between' }}>
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-          <a href="/" style={{ display: 'flex', alignItems: 'center' }}>
+          <Link to="/" style={{ display: 'flex', alignItems: 'center' }}>
             <img src="/mekina-mart-logo.png.png" alt="Mekina Mart Logo" style={{ height: 90, marginRight: 20, cursor: 'pointer' }} />
-          </a>
+          </Link>
           <span style={{ fontWeight: 800, fontSize: 22, letterSpacing: 1, color: '#fff' }}>Mekina Mart</span>
         </div>
         {/* Centered Search Bar */}
@@ -232,23 +232,23 @@ const Header = ({ onLoginClick, onRegisterClick, onCartClick, onCartCount, onCha
       </div>
       {/* Navigation Bar */}
       <nav style={{ background: 'rgba(44,62,80,0.98)', color: '#fff', display: 'flex', alignItems: 'center', padding: '0.3rem 2vw', fontSize: 17, fontWeight: 600, gap: 18, borderTop: '1px solid #232946', borderBottom: '2px solid #8e44ad', boxShadow: '0 2px 8px #23294611' }}>
-        <a href="/" style={{ color: '#fff', margin: '0 0.7rem', textDecoration: 'none', fontWeight: 700 }}>Home</a>
-        <a href="#products-section" style={{ color: '#fff', margin: '0 0.7rem', textDecoration: 'none' }}>Products</a>
-        <a href="/about" style={{ color: '#fff', margin: '0 0.7rem', textDecoration: 'none' }}>About</a>
-        <a href="/contact" style={{ color: '#fff', margin: '0 0.7rem', textDecoration: 'none' }}>Contact</a>
-        <a href="/post" style={{ color: '#fff', margin: '0 0.7rem', textDecoration: 'none' }}>Post</a>
-        <a href="/wishlist" style={{ color: '#fff', margin: '0 0.7rem', textDecoration: 'none' }}>Wishlist</a>
-        <a href="/orders" style={{ color: '#fff', margin: '0 0.7rem', textDecoration: 'none' }}>Orders</a>
+        <Link to="/" style={{ color: '#fff', margin: '0 0.7rem', textDecoration: 'none', fontWeight: 700 }}>Home</Link>
+        <Link to="/?scroll=products" style={{ color: '#fff', margin: '0 0.7rem', textDecoration: 'none' }}>Products</Link>
+        <Link to="/about" style={{ color: '#fff', margin: '0 0.7rem', textDecoration: 'none' }}>About</Link>
+        <Link to="/contact" style={{ color: '#fff', margin: '0 0.7rem', textDecoration: 'none' }}>Contact</Link>
+        <Link to="/post" style={{ color: '#fff', margin: '0 0.7rem', textDecoration: 'none' }}>Post</Link>
+        <Link to="/wishlist" style={{ color: '#fff', margin: '0 0.7rem', textDecoration: 'none' }}>Wishlist</Link>
+        <Link to="/orders" style={{ color: '#fff', margin: '0 0.7rem', textDecoration: 'none' }}>Orders</Link>
         {isLoggedIn && (
-          <a href="/profile" style={{ color: '#fff', margin: '0 0.7rem', textDecoration: 'none' }}>Profile</a>
+          <Link to="/profile" style={{ color: '#fff', margin: '0 0.7rem', textDecoration: 'none' }}>Profile</Link>
         )}
         {isLoggedIn && (
-          <a href="/chat-inbox" style={{ color: '#fff', margin: '0 0.7rem', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6, position: 'relative' }}>
+          <Link to="/chat-inbox" style={{ color: '#fff', margin: '0 0.7rem', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6, position: 'relative' }}>
             <i className="fas fa-comments" style={{ fontSize: 16 }}></i> 
             {chatUnread > 0 && (
               <span style={badgeStyle}>{chatUnread}</span>
             )}
-          </a>
+          </Link>
         )}
       </nav>
       {/* Notification dropdown */}

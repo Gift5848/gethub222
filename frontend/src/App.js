@@ -112,11 +112,23 @@ function SlideBarModal({ children, onClose }) {
   );
 }
 
+function getRoleUser() {
+  const path = window.location.pathname;
+  if (path.startsWith('/admin')) {
+    return JSON.parse(localStorage.getItem('admin_user'));
+  } else if (path.startsWith('/subadmin')) {
+    return JSON.parse(localStorage.getItem('subadmin_user'));
+  } else if (path.startsWith('/delivery')) {
+    return JSON.parse(localStorage.getItem('delivery_user'));
+  }
+  return JSON.parse(localStorage.getItem('user'));
+}
+
 function App() {
   const [showCart, setShowCart] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [authMode, setAuthMode] = useState('login');
-  const user = JSON.parse(localStorage.getItem('user'));
+  const user = getRoleUser();
   const userId = user?._id || 'guest';
   const cartKey = `cart_${userId}`;
   const [cartCount, setCartCount] = useState(() => {
@@ -234,7 +246,7 @@ function App() {
 
 // Protect DeliveryDashboard so only delivery role can access
 function ProtectedDeliveryDashboard() {
-  const user = JSON.parse(localStorage.getItem('user'));
+  const user = JSON.parse(localStorage.getItem('delivery_user'));
   if (!user || user.role !== 'delivery') {
     window.location.href = '/delivery-login';
     return null;

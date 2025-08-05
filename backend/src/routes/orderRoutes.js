@@ -63,10 +63,14 @@ router.get('/public/:id', async (req, res) => {
   try {
     const Order = require('../models/order');
     const order = await Order.findById(req.params.id);
-    if (!order) return res.status(404).json({ error: 'Order not found' });
+    if (!order) {
+      // Always return JSON, even if not found
+      return res.status(404).json({ error: 'Order not found', paymentStatus: 'unknown', status: 'unknown' });
+    }
     res.json({ paymentStatus: order.paymentStatus, status: order.status });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    // Always return JSON on error
+    res.status(500).json({ error: err.message, paymentStatus: 'unknown', status: 'unknown' });
   }
 });
 // Get all orders for a seller (only their own orders)

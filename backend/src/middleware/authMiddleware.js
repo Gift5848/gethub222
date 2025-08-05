@@ -3,31 +3,31 @@ const User = require('../models/user');
 
 const authMiddleware = async (req, res, next) => {
     const token = req.header('Authorization')?.replace('Bearer ', '');
-
+    console.log('AUTH HEADER:', req.header('Authorization'));
     if (!token) {
+        console.log('AUTH ERROR: No token provided');
         return res.status(401).json({ message: 'Access denied. No token provided.' });
     }
-
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const userId = decoded.id || decoded._id;
         if (!userId) {
-            console.log('DEBUG AUTH: Invalid token, missing user id:', decoded);
+            console.log('AUTH ERROR: Invalid token, missing user id:', decoded);
             return res.status(401).json({ message: 'Invalid token: missing user id.' });
         }
         // Fetch full user object
         const user = await User.findById(userId);
         if (!user) {
-            console.log('DEBUG AUTH: User not found for userId:', userId);
+            console.log('AUTH ERROR: User not found for userId:', userId);
             return res.status(401).json({ message: 'User not found.' });
         }
         req.user = user;
         req.user._id = user._id?.toString();
         req.user.buyerId = user.buyerId || undefined; // Ensure buyerId is set
-        console.log('DEBUG AUTH req.user:', req.user); // Debug log
+        console.log('AUTH SUCCESS req.user:', req.user); // Debug log
         next();
     } catch (error) {
-        console.log('DEBUG AUTH: Invalid token error:', error);
+        console.log('AUTH ERROR: Invalid token error:', error);
         res.status(400).json({ message: 'Invalid token.' });
     }
 };

@@ -18,8 +18,8 @@ const DeliveryLogin = () => {
         setError('Not a delivery account.');
         return;
       }
-      localStorage.setItem('token', res.data.token);
-      localStorage.setItem('user', JSON.stringify(res.data.user));
+      localStorage.setItem('delivery_token', res.data.token);
+      localStorage.setItem('delivery_user', JSON.stringify(res.data.user));
       navigate('/delivery');
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed.');
@@ -28,6 +28,7 @@ const DeliveryLogin = () => {
 
   return (
     <div className={styles.loginContainer}>
+      <img src="/mekina-mart-logo.png.png" alt="Mekina Mart Logo" style={{ height: 70, marginBottom: 18, marginTop: -10, display: 'block', marginLeft: 'auto', marginRight: 'auto' }} />
       <h2 className={styles.loginTitle}>Delivery Login</h2>
       <form onSubmit={handleSubmit}>
         <div>
