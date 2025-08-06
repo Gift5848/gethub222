@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const ShopRequest = require('../models/shopRequest');
+const { createWalletForShop } = require('./walletController');
 
 // Register a new user (with optional role)
 exports.register = async (req, res) => {
@@ -198,6 +199,8 @@ exports.createSellerForSubadmin = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
         const newUser = new User({ username, email, password: hashedPassword, role: 'seller', owner: req.user.id, privileges: filteredPrivileges, shopId, sellerId });
         await newUser.save();
+        // Create wallet for this seller's shop if not exists
+        await createWalletForShop(shopId);
         res.status(201).json({ message: 'Seller created successfully', user: newUser });
     } catch (error) {
         // Handle duplicate key error for unique index
@@ -360,6 +363,8 @@ exports.registerShop = async (req, res) => {
         // Link userRef in shopRequest
         shopRequest.userRef = newUser._id;
         await shopRequest.save();
+        // Create wallet for this shop
+        await createWalletForShop(shopRequest._id);
         res.status(201).json({ message: 'Shop registration submitted for review. You will be notified after admin approval.' });
     } catch (error) {
         res.status(500).json({ message: error.message || 'Error registering shop', error });

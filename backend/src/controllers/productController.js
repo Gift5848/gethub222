@@ -1,5 +1,7 @@
 const Product = require('../models/product');
 const User = require('../models/user');
+const Wallet = require('../models/wallet');
+const walletController = require('./walletController');
 
 // Get all products with optional filters
 exports.getProducts = async (req, res) => {
@@ -110,6 +112,18 @@ exports.createProduct = async (req, res) => {
         // Store receipt file path if present
         if (req.files && req.files['receipt'] && req.files['receipt'][0]) {
             productData.receiptUrl = `/uploads/${req.files['receipt'][0].filename}`;
+        }
+        // Wallet-based posting rule for sellers
+        if (req.user.role === 'seller' && req.body.price) {
+            const shopId = req.user.shopId;
+            const productPrice = req.body.price;
+            // Show wallet calculation if requested (UI can call /api/wallet/calculation for preview)
+            // Enforce wallet freeze for posting
+            try {
+                await walletController.freezeForProduct(shopId, productPrice);
+            } catch (err) {
+                return res.status(403).json({ error: err.message || 'Insufficient wallet balance to post product.' });
+            }
         }
         const product = new Product(productData);
         await product.save();

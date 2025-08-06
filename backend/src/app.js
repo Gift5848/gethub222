@@ -16,6 +16,7 @@ const { Server } = require('socket.io');
 const authMiddleware = require('./middleware/authMiddleware');
 const Message = require('./models/message');
 const paymentRoutes = require('./routes/paymentRoutes');
+const walletRoutes = require('./routes/walletRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -48,6 +49,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/payment', paymentRoutes);
+app.use('/api/wallet', walletRoutes);
 
 // Get total unread chat messages for the current user
 app.get('/api/messages/unread-count', authMiddleware, async (req, res) => {

@@ -1,11 +1,13 @@
 const Order = require('../models/order');
 const Product = require('../models/product');
 const User = require('../models/user');
+const Wallet = require('../models/wallet');
 const { sendOrderNotification } = require('../utils/notify');
 const { geocodeAddress } = require('../utils/geocode');
 const fs = require('fs');
 const path = require('path');
 const PDFDocument = require('pdfkit');
+const walletController = require('./walletController');
 
 // Get all orders for a subadmin (seller)
 const getSubadminOrders = async (req, res) => {
@@ -309,6 +311,19 @@ const placeOrder = async (req, res) => {
       seller
     });
     await order.save();
+    // After order is saved, debit frozen 2% as platform fee for each product's shop
+    for (const item of products) {
+      const product = await Product.findById(item.product);
+      if (product && product.shopId) {
+        const fee = Math.ceil(product.price * 0.02);
+        try {
+          await walletController.debitFrozen(product.shopId, fee);
+        } catch (err) {
+          // Log error but do not block order placement
+          console.error('Wallet fee debit error:', err.message);
+        }
+      }
+    }
     // Send notification to user and seller
     try {
       const buyerUser = await User.findById(req.user._id);
