@@ -13,6 +13,7 @@ import {
   ArcElement
 } from 'chart.js';
 import { FaBell, FaHome, FaBoxOpen, FaUsers, FaRegListAlt, FaFileAlt, FaChartBar, FaRegCommentDots, FaCog } from 'react-icons/fa';
+import WalletDashboard from './WalletDashboard';
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
 
 const API_BASE = `http://${window.location.hostname}:5000/api`;
@@ -94,6 +95,7 @@ const SubAdminDashboard = () => {
   const sidebarLinks = [
     { key: 'dashboard', label: 'Dashboard', icon: <FaHome /> },
     { key: 'products', label: 'Products', icon: <FaBoxOpen /> },
+    { key: 'wallet', label: 'Wallet', icon: <FaChartBar /> },
     { key: 'sellers', label: 'Sellers', icon: <FaUsers /> },
     { key: 'orders', label: 'Orders', icon: <FaRegListAlt /> },
     { key: 'reports', label: 'Reports', icon: <FaFileAlt /> },
@@ -756,12 +758,6 @@ const SubAdminDashboard = () => {
                 <option value="desc">Desc</option>
               </select>
             </div>
-            {/* Debug Info: Show user and products for troubleshooting */}
-            <div style={{background:'#ffe',padding:'10px',marginBottom:'10px'}}>
-              <strong>Debug Info:</strong><br/>
-              User shopId: {user?.shopId ? user.shopId : 'N/A'}<br/>
-              Products: <pre>{JSON.stringify(products, null, 2)}</pre>
-            </div>
             {products.length === 0 ? (
               <div style={{color: '#888', textAlign: 'center', padding: 32}}>No products found.</div>
             ) : (
@@ -1303,6 +1299,8 @@ const SubAdminDashboard = () => {
           );
         }
         break;
+      case 'wallet':
+        return <WalletDashboard />;
       default:
         return null;
     }
@@ -1619,6 +1617,7 @@ const SubAdminDashboard = () => {
               </div>
             )}
             <div className="dashboard-root">
+              <div style={{color:'red',fontWeight:700,marginBottom:12}}>DEBUG: section = {section}</div>
               {renderSection()}
               {/* Activity Log Section */}
               {section === 'dashboard' && (

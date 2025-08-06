@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import ShopWalletSummary from './ShopWalletSummary';
 
 const API_BASE = `http://${window.location.hostname}:5000/api`;
 
@@ -40,7 +41,9 @@ function SellerProductList() {
   // Add edit logic as needed
 
   return (
-    <>
+    <div style={{ maxWidth: 900, margin: '40px auto' }}>
+      <ShopWalletSummary />
+      <h2>My Products</h2>
       <table>
         <thead>
           <tr>
@@ -60,7 +63,7 @@ function SellerProductList() {
           ))}
         </tbody>
       </table>
-    </>
+    </div>
   );
 }
 

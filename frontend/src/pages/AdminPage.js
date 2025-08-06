@@ -49,6 +49,8 @@ const AdminPage = () => {
   const [editUserForm, setEditUserForm] = useState({ username: '', email: '', role: 'subadmin', password: '' });
   // For product image upload
   const [imageFile, setImageFile] = useState(null);
+  // Receipt upload state
+  const [receiptFile, setReceiptFile] = useState(null);
   // Password change modal state
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
@@ -136,6 +138,37 @@ const AdminPage = () => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 2500);
   };
+  const handleApproveProduct = async (productId) => {
+  try {
+    const res = await fetch(`/api/products/${productId}/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (res.ok) {
+      fetchProducts(); // Refresh the product list
+    } else {
+      alert('Failed to approve product');
+    }
+  } catch (err) {
+    alert('Error approving product');
+  }
+};
+
+const handleRejectProduct = async (productId) => {
+  try {
+    const res = await fetch(`/api/products/${productId}/reject`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (res.ok) {
+      fetchProducts();
+    } else {
+      alert('Failed to reject product');
+    }
+  } catch (err) {
+    alert('Error rejecting product');
+  }
+};
 
   useEffect(() => {
     if (auth) {
@@ -467,7 +500,7 @@ const AdminPage = () => {
                   <td style={{ border: '1px solid #ddd', padding: 8 }}>
                     <button onClick={() => setViewingOrder(order)} style={{background:'#2980b9',color:'#fff',border:'none',borderRadius:4,padding:'4px 10px',cursor:'pointer',marginRight:6}}>View</button>
                     {order.receiptUrl && (
-                      <a href={order.receiptUrl.startsWith('http') ? order.receiptUrl : `http://localhost:5000${order.receiptUrl}`} target="_blank" rel="noopener noreferrer">
+                      <a href={order.receiptUrl.startsWith('http') ? order.receiptUrl : `${process.env.REACT_APP_API_URL}${order.receiptUrl}`} target="_blank" rel="noopener noreferrer">
                         <button style={{background:'#27ae60',color:'#fff',border:'none',borderRadius:4,padding:'4px 10px',cursor:'pointer'}}>View Receipt</button>
                       </a>
                     )}
@@ -546,8 +579,15 @@ const AdminPage = () => {
   const handleImageChange = e => {
     setImageFile(e.target.files[0]);
   };
+  const handleReceiptChange = e => {
+    setReceiptFile(e.target.files[0]);
+  };
   const handleSubmit = async e => {
     e.preventDefault();
+    const formData = new FormData();
+    Object.entries(form).forEach(([key, value]) => formData.append(key, value));
+    if (imageFile) formData.append('image', imageFile);
+    if (receiptFile) formData.append('receipt', receiptFile);
     try {
       let imageUrl = form.image;
       if (imageFile) {
@@ -1245,6 +1285,10 @@ function getShopNameForProduct(product) {
                 <input name="image" value={form.image} onChange={handleChange} placeholder="Image URL or filename" style={{flex: 2}} />
                 <input type="file" accept="image/*" onChange={handleImageChange} style={{flex: 2}} />
                 <input name="description" value={form.description} onChange={handleChange} placeholder="Description" style={{flex: 2}} />
+                {/* Receipt upload section */}
+                <label style={{flex: 2, color: '#fff'}}>Upload Receipt (optional):
+                  <input type="file" accept="image/*,application/pdf" name="receipt" onChange={handleReceiptChange} style={{marginLeft: 8}} />
+                </label>
                 <button type="submit" style={{flex: 1}}>{editing ? 'Update' : 'Add'} Product</button>
                 {editing && <button type="button" onClick={() => { setEditing(null); setForm({ name: '', price: '', category: '', image: '', description: '' }); setImageFile(null); }} style={{flex: 1, background: '#e74c3c'}}>Cancel</button>}
               </form>
@@ -1279,6 +1323,13 @@ function getShopNameForProduct(product) {
                         <td>{getShopNameForProduct(product)}</td>
                         <td>{getSellerNameById(product.sellerId)}</td>
                         <td>
+                          {/* Approve/Reject for pendingApproval products */}
+                          {product.status === 'pendingApproval' ? (
+                            <>
+                              <button className="btn btn-success" style={{marginRight: 6, background: '#27ae60', color: '#fff'}} onClick={() => handleApproveProduct(product._id)}>Approve</button>
+                              <button className="btn btn-danger" style={{marginRight: 6, background: '#e74c3c', color: '#fff'}} onClick={() => handleRejectProduct(product._id)}>Reject</button>
+                            </>
+                          ) : null}
                           <button className="btn btn-secondary" onClick={() => handleEdit(product)} style={{marginRight: 6}}>Edit</button>
                           <button className="btn btn-outline" onClick={() => handleDelete(product._id)} style={{ color: '#e74c3c' }}>Delete</button>
                         </td>
@@ -1477,482 +1528,10 @@ function getShopNameForProduct(product) {
                     {liveStatus.map(s => <li key={s.label}><b>{s.label}:</b> <span style={{color: s.status === 'online' ? '#27ae60' : '#f7c948', fontWeight: 700, animation: s.status === 'online' ? 'glowPulse 1.5s infinite alternate' : undefined}}>{s.status}</span></li>)}
                   </ul>
                 </div>
-              </div>
-            </div>
-          )}
-          {sidebarSection === 'products' && (
-            <div>
-              <h2>Manage Products</h2>
-              <div style={{display:'flex',gap:12,marginBottom:16}}>
-                <input
-                  type="text"
-                  placeholder="Search products..."
-                  value={productSearch}
-                  onChange={e => setProductSearch(e.target.value)}
-                  style={{flex:2,padding:'10px',borderRadius:8,border:'1px solid #3a6cf6'}}
-                />
-                <select value={productCategoryFilter} onChange={e => setProductCategoryFilter(e.target.value)} style={{flex:1,padding:'10px',borderRadius:8}}>
-                  <option value="">All Categories</option>
-                  {[...new Set(products.map(p => p.category || 'Uncategorized'))].map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-                <select value={productStockFilter} onChange={e => setProductStockFilter(e.target.value)} style={{flex:1,padding:'10px',borderRadius:8}}>
-                  <option value="">All Stock</option>
-                  <option value="in_stock">In Stock</option>
-                  <option value="low_stock">Low Stock (≤5)</option>
-                  <option value="out_of_stock">Out of Stock</option>
-                </select>
-                <select value={productShopFilter} onChange={e => setProductShopFilter(e.target.value)} style={{flex:1,padding:'10px',borderRadius:8}}>
-                  <option value="">All Shops</option>
-                  {[...new Set(users.filter(u => u.role === 'subadmin').map(u => u.uniqueId || u._id))].map(id => {
-                    const user = users.find(u => (u.uniqueId === id || u._id === id) && u.role === 'subadmin');
-                    return <option key={id} value={id}>{user ? user.username : id}</option>;
-                  })}
-                </select>
-                <select value={productSellerFilter} onChange={e => setProductSellerFilter(e.target.value)} style={{flex:1,padding:'10px',borderRadius:8}}>
-                  <option value="">All Sellers</option>
-                  {[...new Set(users.filter(u => u.role === 'seller').map(u => u.uniqueId || u._id))].map(id => {
-                    const user = users.find(u => (u.uniqueId === id || u._id === id) && u.role === 'seller');
-                    return <option key={id} value={id}>{user ? user.username : id}</option>;
-                  })}
-                </select>
-              </div>
-              <button onClick={exportProductsCSV} className="btn btn-outline" style={{marginBottom: 16, float: 'right'}}>Export CSV</button>
-              <form onSubmit={handleSubmit} encType="multipart/form-data" style={{display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 18, background: '#232946', borderRadius: 12, padding: 16}}>
-                <input name="name" value={form.name} onChange={handleChange} placeholder="Name" required style={{flex: 1}} />
-                <input name="price" value={form.price} onChange={handleChange} placeholder="Price" required style={{flex: 1}} />
-                <input name="category" value={form.category} onChange={handleChange} placeholder="Category" style={{flex: 1}} />
-                <input name="image" value={form.image} onChange={handleChange} placeholder="Image URL or filename" style={{flex: 2}} />
-                <input type="file" accept="image/*" onChange={handleImageChange} style={{flex: 2}} />
-                <input name="description" value={form.description} onChange={handleChange} placeholder="Description" style={{flex: 2}} />
-                <button type="submit" style={{flex: 1}}>{editing ? 'Update' : 'Add'} Product</button>
-                {editing && <button type="button" onClick={() => { setEditing(null); setForm({ name: '', price: '', category: '', image: '', description: '' }); setImageFile(null); }} style={{flex: 1, background: '#e74c3c'}}>Cancel</button>}
-              </form>
-              {lowStockProducts.length > 0 && (
-                <div className="low-stock-alert">
-                  <span>⚠️ Low Stock Alert: </span>
-                  {lowStockProducts.map(p => `${p.name} (${p.stock})`).join(', ')}
-                </div>
-              )}
-              <div style={{overflowX: 'auto'}}>
-                <table className="future-table" style={{minWidth: 1000}}>
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Price</th>
-                      <th>Category</th>
-                      <th>Image</th>
-                      <th>Description</th>
-                      <th>Shop (Subadmin)</th>
-                      <th>Seller</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedProducts.map(product => (
-                      <tr key={product._id} style={{background: editing && editing._id === product._id ? '#353b48' : undefined}}>
-                        <td>{product.name}</td>
-                        <td>${product.price}</td>
-                        <td>{product.category}</td>
-                        <td>{product.image ? <img src={product.image} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, boxShadow: '0 1px 4px #2222' }} /> : ''}</td>
-                        <td>{product.description}</td>
-                        <td>{getShopNameForProduct(product)}</td>
-                        <td>{getSellerNameById(product.sellerId)}</td>
-                        <td>
-                          <button className="btn btn-secondary" onClick={() => handleEdit(product)} style={{marginRight: 6}}>Edit</button>
-                          <button className="btn btn-outline" onClick={() => handleDelete(product._id)} style={{ color: '#e74c3c' }}>Delete</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {/* Pagination controls */}
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32, gap: 12 }}>
-                <button onClick={() => setProductPage(p => Math.max(1, p - 1))} disabled={productPage === 1}>&lt; Prev</button>
-                <span>Page {productPage} of {totalProductPages}</span>
-                <button onClick={() => setProductPage(p => Math.min(totalProductPages, p + 1))} disabled={productPage === totalProductPages}>Next &gt;</button>
-              </div>
-            </div>
-          )}
-          {sidebarSection === 'users' && (
-            <div>
-              <h2 style={{color:'#00b894',marginBottom:8}}>Subadmin - Users</h2>
-              <h3>Manage Users (Create Sellers)</h3>
-              {/* User Filters */}
-              <div style={{display:'flex',gap:12,marginBottom:16}}>
-                <input
-                  type="text"
-                  placeholder="Search users..."
-                  value={userSearch}
-                  onChange={e => setUserSearch(e.target.value)}
-                  style={{flex:2,padding:'10px',borderRadius:8,border:'1px solid #3a6cf6'}}
-                />
-                <select value={userRoleFilter} onChange={e => setUserRoleFilter(e.target.value)} style={{flex:1,padding:'10px',borderRadius:8}}>
-                  <option value="">All Roles</option>
-                  <option value="admin">Admin</option>
-                  <option value="subadmin">Sub-Admin</option>
-                  <option value="seller">Seller</option>
-                  <option value="delivery">Delivery</option>
-                  <option value="user">User</option>
-                </select>
-                <select value={userApprovalFilter} onChange={e => setUserApprovalFilter(e.target.value)} style={{flex:1,padding:'10px',borderRadius:8}}>
-                  <option value="">All Status</option>
-                  <option value="approved">Approved</option>
-                  <option value="not_approved">Not Approved</option>
-                </select>
-              </div>
-              <button onClick={exportUsersCSV} className="btn btn-outline" style={{marginBottom: 16, float: 'right'}}>Export CSV</button>
-              <form onSubmit={handleUserSubmit} style={{display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 18, background: '#232946', borderRadius: 12, padding: 16}}>
-                <input name="username" value={userForm.username} onChange={handleUserChange} placeholder="Username" required style={{flex: 1}} />
-                <input name="email" value={userForm.email} onChange={handleUserChange} placeholder="Email" required style={{flex: 1}} />
-                <input name="password" type="password" value={userForm.password} onChange={handleUserChange} placeholder="Password" required style={{flex: 1}} />
-                <input name="phone" value={userForm.phone} onChange={handleUserChange} placeholder="Phone" required style={{flex: 1}} />
-                <select name="role" value={userForm.role} onChange={handleUserChange} style={{flex: 1}}>
-                  <option value="seller">Seller</option>
-                  <option value="subadmin">Sub-Admin</option>
-                </select>
-                <button type="submit" style={{flex: 1}}>Create User</button>
-              </form>
-              {/* Delivery Person Creation Form */}
-              <div style={{margin:'2rem 0',padding:'1.5rem',background:'#f8f9fa',borderRadius:8,maxWidth:500}}>
-                <h3>Create Delivery Person</h3>
-                <form onSubmit={handleDeliverySubmit} style={{display:'flex',flexDirection:'column',gap:10}}>
-                  <input name="username" value={deliveryForm.username} onChange={handleDeliveryChange} placeholder="Username" required />
-                  <input name="email" value={deliveryForm.email} onChange={handleDeliveryChange} placeholder="Email" required />
-                  <input name="password" type="password" value={deliveryForm.password} onChange={handleDeliveryChange} placeholder="Password" required />
-                  <button type="submit">Create Delivery Account</button>
-                  {deliveryMsg && <div style={{color:deliveryMsg.startsWith('Error')?'red':'green'}}>{deliveryMsg}</div>}
-                </form>
-              </div>
-              <div style={{overflowX: 'auto'}}>
-                <table className="future-table" style={{minWidth: 700}}>
-                  <thead>
-                    <tr>
-                      <th>Username</th><th>Email</th><th>Role</th><th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredUsers.map(user => (
-                      editingUser === user._id ? (
-                        <tr key={user._id} style={{ background: '#353b48' }}>
-                          <td><input name="username" value={editUserForm.username} onChange={handleEditUserChange} /></td>
-                          <td><input name="email" value={editUserForm.email} onChange={handleEditUserChange} /></td>
-                          <td>
-                            <select name="role" value={editUserForm.role} onChange={handleEditUserChange}>
-                              <option value="seller">Seller</option>
-                              <option value="subadmin">Sub-Admin</option>
-                            </select>
-                          </td>
-                          <td>
-                            <input name="password" type="password" value={editUserForm.password} onChange={handleEditUserChange} placeholder="New password (optional)" />
-                            <button onClick={handleEditUserSubmit}>Save</button>
-                            <button onClick={handleCancelEditUser}>Cancel</button>
-                          </td>
-                        </tr>
-                      ) : (
-                        <tr key={user._id}>
-                          <td>{user.username}</td>
-                          <td>{user.email}</td>
-                          <td>{user.role}</td>
-                          <td>
-                            <button onClick={() => handleEditUser(user)} style={{marginRight: 6}}>Edit</button>
-                            <button onClick={() => handleUserDelete(user._id)} style={{ background: '#e74c3c', color: '#fff', marginRight: 6 }}>Delete</button>
-                          </td>
-                        </tr>
-                      )
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-          {sidebarSection === 'analytics' && (
-            <div>
-              {/* Sales summary and analytics (from backend) */}
-              <div className="future-dashboard-cards" style={{display: 'flex', flexWrap: 'wrap', gap: 24, marginBottom: 32}}>
-                <div className="future-card" style={{flex: 1, padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-start'}}>
-                  <div style={{fontSize: 14, color: '#888'}}>Total Orders</div>
-                  <div style={{fontWeight: 700, fontSize: 28, color: '#0984e3'}}>{salesSummary.totalOrders}</div>
-                </div>
-                <div className="future-card" style={{flex: 1, padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-start'}}>
-                  <div style={{fontSize: 14, color: '#888'}}>Total Revenue</div>
-                  <div style={{fontWeight: 700, fontSize: 28, color: '#27ae60'}}>ETB {salesSummary.totalRevenue.toLocaleString()}</div>
-                </div>
-                <div className="future-card" style={{flex: 1, padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-start'}}>
-                  <div style={{fontSize: 14, color: '#888'}}>Products</div>
-                  <div style={{fontWeight: 700, fontSize: 28, color: '#f7c948'}}>{salesSummary.productCount}</div>
-                </div>
-                <div className="future-card" style={{flex: 1, padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-start'}}>
-                  <div style={{fontSize: 14, color: '#888'}}>Users</div>
-                  <div style={{fontWeight: 700, fontSize: 28, color: '#888'}}>{salesSummary.userCount}</div>
-                </div>
-              </div>
-              {/* --- Advanced Analytics Charts --- */}
-              <div className="future-dashboard-row" style={{display: 'flex', flexWrap: 'wrap', gap: 24, marginBottom: 32, width: '100%'}}>
-                <div className="future-chart-container" style={{flex: 2, padding: '1.5rem'}}>
-                  <div style={{fontWeight: 600, marginBottom: 12}}>Orders by Month</div>
-                  <Bar data={ordersByMonthData} options={{responsive: true, plugins: {legend: {display: false}}, scales: {y: {beginAtZero: true}}}} height={180} />
-                </div>
-                <div className="future-chart-container" style={{flex: 2, padding: '1.5rem'}}>
-                  <div style={{fontWeight: 600, marginBottom: 12}}>Revenue by Month</div>
-                  <Bar data={revenueByMonthData} options={{responsive: true, plugins: {legend: {display: false}}, scales: {y: {beginAtZero: true}}}} height={180} />
-                </div>
-                <div className="future-chart-container" style={{flex: 1, padding: '1.5rem'}}>
-                  <div style={{fontWeight: 600, marginBottom: 12}}>Users by Role</div>
-                  <Pie data={usersByRoleData} options={{responsive: true, plugins: {legend: {position: 'bottom'}}}} height={180} />
-                </div>
-              </div>
-              <div className="future-chart-container" style={{padding: '1.5rem', marginBottom: 32, width: '100%', boxSizing: 'border-box'}}>
-                <div style={{fontWeight: 600, marginBottom: 12}}>Top Selling Products</div>
-                <Bar data={topProductsData} options={{responsive: true, plugins: {legend: {display: false}}, scales: {y: {beginAtZero: true}}}} height={180} />
-              </div>
-              {/* --- Real-Time & Custom Analytics Widgets --- */}
-              <div className="future-dashboard-row" style={{display: 'flex', flexWrap: 'wrap', gap: 24, marginBottom: 32, alignItems: 'stretch', width: '100%'}}>
-                <div className="future-card future-glow" style={{flex: 1, padding: '1.5rem', minWidth: 220, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'}} title="Real-Time Active Users">
-                  <div style={{fontWeight: 600, marginBottom: 8}}>Active Users</div>
-                  <div style={{fontSize: 38, fontWeight: 900, color: '#3a6cf6', transition: 'all 0.5s'}}>{activeUsers}</div>
-                  <div style={{fontSize: 13, color: '#888'}}>in the last 5 min</div>
-                </div>
-                <div className="future-card" style={{flex: 2, padding: '1.5rem', minWidth: 220, display: 'flex', flexDirection: 'column', justifyContent: 'center'}} title="Live Sales Ticker">
-                  <div style={{fontWeight: 600, marginBottom: 8}}>Live Sales</div>
-                  <div style={{fontSize: 18, color: '#27ae60', minHeight: 32, transition: 'all 0.5s'}}>
-                    {salesTicker[tickerIndex]?.msg}
-                  </div>
-                </div>
-                <div className="future-card" style={{flex: 3, padding: '1.5rem', minWidth: 220}} title="Product/Category Heatmap">
-                  <div style={{fontWeight: 600, marginBottom: 8}}>Product/Category Heatmap</div>
-                  <div style={{display: 'flex', gap: 8, flexWrap: 'wrap'}}>
-                    {heatmapLabels.map((cat, i) => {
-                      const rawOpacity = 0.8 + 0.2 * (heatmapValues[i] / Math.max(...heatmapValues || [1]));
-                      const safeOpacity = isNaN(rawOpacity) ? 1 : Math.max(0, Math.min(1, rawOpacity));
-                      return (
-                        <div
-                          key={cat}
-                          style={{
-                            background: '#3a6cf6',
-                            color: '#fff',
-                            borderRadius: 8,
-                            padding: '8px 16px',
-                            marginBottom: 6,
-                            fontWeight: 600,
-                            opacity: safeOpacity
-                          }}
-                        >
-                          {cat}: {heatmapValues[i]}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-                <div className="future-card" style={{flex: 2, padding: '1.5rem', minWidth: 220}} title="Recent Logins">
-                  <div style={{fontWeight: 600, marginBottom: 8}}>Recent Logins</div>
-                  <ul style={{listStyle: 'none', padding: 0, margin: 0, fontSize: 15}}>
-                    {recentLogins.map(l => <li key={l.user}><b>{l.user}</b> <span style={{color: '#888'}}>({l.role})</span> <span style={{float: 'right', color: '#3a6cf6'}}>{l.time}</span></li>)}
-                  </ul>
-                </div>
-                <div className="future-card" style={{flex: 1, padding: '1.5rem', minWidth: 220}} title="Live Server Status">
-                  <div style={{fontWeight: 600, marginBottom: 8}}>Live Server Status</div>
-                  <ul style={{listStyle: 'none', padding: 0, margin: 0, fontSize: 15}}>
-                    {liveStatus.map(s => <li key={s.label}><b>{s.label}:</b> <span style={{color: s.status === 'online' ? '#27ae60' : '#f7c948', fontWeight: 700, animation: s.status === 'online' ? 'glowPulse 1.5s infinite alternate' : undefined}}>{s.status}</span></li>)}
-                  </ul>
-                </div>
-              </div>
-            </div>
-          )}
-          {sidebarSection === 'orders' && (
-            <div>
-              <h2>Your Orders</h2>
-              <div style={{marginBottom:16}}>
-                <button
-                  onClick={() => setOrderViewType(v => v === 'table' ? 'card' : 'table')}
-                  style={{marginBottom:12, padding:'8px 18px', borderRadius:6, border:'1px solid #3a6cf6', background:'#fff', color:'#3a6cf6', fontWeight:600, cursor:'pointer'}}
-                >
-                  Switch to {orderViewType === 'table' ? 'Card View' : 'Table View'}
-                </button>
-              </div>
-              {orderViewType === 'table' ? (
-                // --- Old Table View ---
-                <div style={{overflowX:'auto'}}>
-                  <table className="future-table" style={{minWidth:1100}}>
-                    <thead>
-                      <tr>
-                        <th>Order ID</th>
-                        <th>User</th>
-                        <th>Status</th>
-                        <th>Payment</th>
-                        <th>Payment Method</th>
-                        <th>Transaction Number</th>
-                        <th>Payment Approval</th>
-                        <th>Total</th>
-                        <th>Date</th>
-                        <th>Shop</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {orders.map(order => (
-                        <tr key={order._id || order.id}>
-                          <td>{order._id || order.id}</td>
-                          <td>{order.user?.username || order.user || '-'}</td>
-                          <td>{order.status || '-'}</td>
-                          <td>{order.paymentStatus || '-'}</td>
-                          <td>{order.paymentMethod || '-'}</td>
-                          <td>{order.paymentTransaction || '-'}</td>
-                          <td>{['cbe','telebirr','CBE','Telebirr'].includes((order.paymentMethod||'').toLowerCase()) ? (
-                            order.paymentApprovalStatus === 'approved' ? (
-                              <span style={{color:'#27ae60',fontWeight:600}}>Approved</span>
-                            ) : order.paymentApprovalStatus === 'rejected' ? (
-                              <span style={{color:'#e74c3c',fontWeight:600}}>Rejected</span>
-                            ) : order.paymentApprovalStatus === 'pending' || order.paymentStatus === 'pending' ? (
-                              <>
-                                <button onClick={async () => {
-                                  try {
-                                    await axios.patch(`${API_BASE}/orders/${order._id}/approve-payment`, { action: 'approve' }, { headers: { Authorization: `Bearer ${token}` } });
-                                    fetchOrders();
-                                  } catch (err) {
-                                    alert('Failed to approve payment');
-                                  }
-                                }} style={{background:'#27ae60',color:'#fff',border:'none',borderRadius:4,padding:'4px 10px',cursor:'pointer',marginRight:8}}>Approve</button>
-                                <button onClick={async () => {
-                                  try {
-                                    await axios.patch(`${API_BASE}/orders/${order._id}/approve-payment`, { action: 'reject' }, { headers: { Authorization: `Bearer ${token}` } });
-                                    fetchOrders();
-                                  } catch (err) {
-                                    alert('Failed to reject payment');
-                                  }
-                                }} style={{background:'#e74c3c',color:'#fff',border:'none',borderRadius:4,padding:'4px 10px',cursor:'pointer'}}>Reject</button>
-                              </>
-                            ) : (
-                              <span style={{color:'#e67e22'}}>Not Approved</span>
-                            )
-                          ) : (
-                            <span style={{color:'#888'}}>N/A</span>
-                          )}</td>
-                          <td>{order.total || order.totalPrice || '-'}</td>
-                          <td>{order.createdAt ? new Date(order.createdAt).toLocaleString() : '-'}</td>
-                          <td>{order.shopId && order.shopId.shopName ? order.shopId.shopName : '-'}</td>
-                          <td>
-                            <button onClick={() => setViewingOrder(order)}>View</button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                // --- New Card/Progress View ---
-                <div>
-                  {orders.map(order => (
-                    <div key={order._id} style={{border:'1px solid #eee',borderRadius:8,padding:16,marginBottom:18,background:'#fff'}}>
-                      {renderOrderProgress(order)}
-                      <div style={{marginTop:8}}>
-                        <b>Order ID:</b> {order._id}<br/>
-                        <b>Status:</b> {order.status || 'N/A'}<br/>
-                        <b>Total:</b> ${order.total || order.totalPrice || '-'}<br/>
-                        <b>Date:</b> {order.createdAt ? new Date(order.createdAt).toLocaleString() : '-'}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {/* Order detail modal (unchanged) */}
-              {viewingOrder && (
-                <div className="modal-overlay" style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(244, 246, 243, 0.4)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <div className="modal-content" style={{background:'#f8f9fa',padding:32,borderRadius:12,minWidth:350,maxWidth:600,boxShadow:'0 4px 24px #26315955',position:'relative'}}>
-                    <h3 style={{color:'#263159'}}>Order Details</h3>
-                    <div style={{marginBottom:12,color:'#232946'}}>
-                      <b>Order ID:</b> {viewingOrder._id}<br/>
-                      <b>Status:</b> {viewingOrder.status}<br/>
-                      <b>Payment Status:</b> {viewingOrder.paymentStatus}<br/>
-                      <b>Payment Approval:</b> {viewingOrder.paymentApprovalStatus}<br/>
-                      <b>Total:</b> ${viewingOrder.total}<br/>
-                      <b>Buyer:</b> {viewingOrder.buyer?.username || viewingOrder.buyer?.email || viewingOrder.buyer}<br/>
-                      <b>Seller:</b> {viewingOrder.seller?.username || viewingOrder.seller?.email || viewingOrder.seller}<br/>
-                      <b>Shop:</b> {viewingOrder.shopId?.shopName || viewingOrder.shopId}<br/>
-                      <b>Created At:</b> {viewingOrder.createdAt ? new Date(viewingOrder.createdAt).toLocaleString() : '-'}<br/>
-                      <b>Products:</b>
-                      <ul style={{margin:'6px 0 10px 0'}}>
-                        {viewingOrder.products?.map((item, idx) => (
-                          <li key={idx}>{item.product?.name || item.product} x {item.quantity} @ {item.price}</li>
-                        ))}
-                      </ul>
-                      {viewingOrder.receiptUrl && (
-                        <a href={viewingOrder.receiptUrl.startsWith('http') ? viewingOrder.receiptUrl : `http://localhost:5000${viewingOrder.receiptUrl}`} target="_blank" rel="noopener noreferrer">
-                          <button style={{background:'#27ae60',color:'#fff',border:'none',borderRadius:4,padding:'6px 14px',cursor:'pointer',marginTop:8}}>View Receipt</button>
-                        </a>
-                      )}
-                    </div>
-                    <button onClick={() => setViewingOrder(null)} style={{marginTop:8}}>Close</button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-          {sidebarSection === 'shopRequests' && (
-            <div>
-              <h2>Shop Registration Requests</h2>
-              {shopRequestsLoading ? (
-                <div>Loading shop requests...</div>
-              ) : shopRequestsError ? (
-                <div style={{color: 'red'}}>{shopRequestsError}</div>
-              ) : shopRequests.length === 0 ? (
-                <div>No shop requests found.</div>
-              ) : (
-                <table className="future-table" style={{minWidth: 700}}>
-                  <thead>
-                    <tr>
-                      <th>Shop Name</th><th>Owner</th><th>Status</th><th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {shopRequests.map(req => (
-                      <tr key={req._id}>
-                        <td>{req.shopName || req.name}</td>
-                        <td>{req.ownerName || req.owner || '-'}</td>
-                        <td>{req.status}</td>
-                        <td>
-                          <button onClick={() => handleShopRequestAction(req._id, 'approve')}>Approve</button>
-                          <button onClick={() => handleShopRequestAction(req._id, 'reject')}>Reject</button>
-                          <button onClick={() => setViewingRequest(req)}>View</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-              {shopRequestActionMsg && <div style={{marginTop: 12, color: '#27ae60'}}>{shopRequestActionMsg}</div>}
-            </div>
-          )}
-          {/* Shop Request Detail Modal */}
-          {viewingRequest && (
-            <div className="modal-overlay" style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.4)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center'}}>
-              <div className="modal-content" style={{background:'#fff',padding:32,borderRadius:12,minWidth:350,maxWidth:500,boxShadow:'0 4px 24px #23294655',position:'relative'}}>
-                <h3>Shop Request Details</h3>
-                <table style={{width:'100%',marginBottom:16}}>
-                  <tbody>
-                    {Object.entries(viewingRequest).map(([key, value]) => (
-                      <tr key={key}>
-                        <td style={{fontWeight:600,padding:'4px 8px',textTransform:'capitalize'}}>{key}</td>
-                                               <td style={{padding:'4px 8px'}}>{String(value)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <button onClick={() => setViewingRequest(null)} style={{marginTop:8}}>Close</button>
               </div>
             </div>
           )}
         </div>
-      </div>
-      {/* Real-time admin notifications (new paid orders) */}
-      <div style={{ display: 'none' }}>
-        {notifications.filter(n => n.type === 'new_paid_order').map(notif => (
-          <div key={notif.orderId} className="toast-notification" style={{position: 'absolute', top: 20, right: 20, background: '#27ae60', color: '#fff', padding: '10px 20px', borderRadius: 8, boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)', fontSize: 14, zIndex: 300}}>
-            New order received: <b>{notif.orderId}</b> - {notif.amount} ETB
-          </div>
-        ))}
       </div>
     </div>
   );

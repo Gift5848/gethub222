@@ -9,12 +9,13 @@ const Orders = () => {
   const [expandedOrder, setExpandedOrder] = useState(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [sortBy, setSortBy] = useState('newest'); // 'newest', 'oldest', 'status'
   const [reviewModal, setReviewModal] = useState({ open: false, orderId: null });
   const [review, setReview] = useState({ rating: 5, comment: '' });
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    axios.get('http://localhost:5000/api/orders/my', {
+    axios.get(`${process.env.REACT_APP_API_URL}/api/orders/my`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => setOrders(res.data))
@@ -29,7 +30,7 @@ const Orders = () => {
     const token = localStorage.getItem('token');
     if (!window.confirm('Are you sure you want to cancel this order?')) return;
     try {
-      await axios.delete(`http://localhost:5000/api/orders/${orderId}`, {
+      await axios.delete(`${process.env.REACT_APP_API_URL}/api/orders/${orderId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setOrders(orders.filter(order => order._id !== orderId));
@@ -41,7 +42,7 @@ const Orders = () => {
   const downloadInvoice = async (orderId) => {
     const token = localStorage.getItem('token');
     try {
-      const res = await axios.get(`http://localhost:5000/api/orders/${orderId}/invoice`, {
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/orders/${orderId}/invoice`, {
         headers: { Authorization: `Bearer ${token}` },
         responseType: 'blob'
       });
@@ -54,7 +55,7 @@ const Orders = () => {
   const trackShipment = async (orderId) => {
     const token = localStorage.getItem('token');
     try {
-      const res = await axios.get(`http://localhost:5000/api/orders/${orderId}/track`, {
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/orders/${orderId}/track`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       alert(`Tracking Number: ${res.data.trackingNumber}\nStatus: ${res.data.status}`);
@@ -66,7 +67,7 @@ const Orders = () => {
   const reorder = async (orderId) => {
     const token = localStorage.getItem('token');
     try {
-      const res = await axios.post(`http://localhost:5000/api/orders/${orderId}/reorder`, {}, {
+      const res = await axios.post(`${process.env.REACT_APP_API_URL}/api/orders/${orderId}/reorder`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       // Add products to cart in localStorage
@@ -94,7 +95,7 @@ const Orders = () => {
   const submitReview = async () => {
     const token = localStorage.getItem('token');
     try {
-      await axios.post(`http://localhost:5000/api/orders/${reviewModal.orderId}/review`, review, {
+      await axios.post(`${process.env.REACT_APP_API_URL}/api/orders/${reviewModal.orderId}/review`, review, {
         headers: { Authorization: `Bearer ${token}` }
       });
       alert('Review submitted!');
@@ -138,6 +139,18 @@ const Orders = () => {
     return matchesSearch && matchesStatus;
   });
 
+  // Sort logic
+  const sortedOrders = [...filteredOrders].sort((a, b) => {
+    if (sortBy === 'newest') {
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    } else if (sortBy === 'oldest') {
+      return new Date(a.createdAt) - new Date(b.createdAt);
+    } else if (sortBy === 'status') {
+      return (a.status || '').localeCompare(b.status || '');
+    }
+    return 0;
+  });
+
   if (loading) return <div style={{padding: '2rem'}}>Loading orders...</div>;
   if (error) return <div style={{padding: '2rem', color: 'red'}}>{error}</div>;
   if (orders.length === 0) return <div style={{padding: '2rem'}}><h2>No orders found.</h2></div>;
@@ -156,9 +169,14 @@ const Orders = () => {
           <option value="delivered">Delivered</option>
           <option value="cancelled">Cancelled</option>
         </select>
+        <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{padding: 6, borderRadius: 4, border: '1px solid #ccc'}}>
+          <option value="newest">Newest First</option>
+          <option value="oldest">Oldest First</option>
+          <option value="status">Status</option>
+        </select>
       </div>
       <ul style={{listStyle: 'none', padding: 0}}>
-        {filteredOrders.map(order => (
+        {sortedOrders.map(order => (
           <li key={order._id} style={{marginBottom: 16, borderBottom: '1px solid #eee', paddingBottom: 8}}>
             {renderOrderProgress(order)}
             <div style={{display:'flex', alignItems:'center', justifyContent:'space-between'}}>
@@ -181,7 +199,7 @@ const Orders = () => {
                   <button onClick={async () => {
                     const token = localStorage.getItem('token');
                     try {
-                      await axios.patch(`http://localhost:5000/api/orders/${order._id}/buyerreceived`, {}, { headers: { Authorization: `Bearer ${token}` } });
+                      await axios.patch(`${process.env.REACT_APP_API_URL}/api/orders/${order._id}/buyerreceived`, {}, { headers: { Authorization: `Bearer ${token}` } });
                       setOrders(orders => orders.map(o => o._id === order._id ? { ...o, status: 'buyerreceived' } : o));
                     } catch (err) {
                       alert('Failed to confirm receipt: ' + (err.response?.data?.error || err.message));

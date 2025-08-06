@@ -81,7 +81,7 @@ const Header = ({ onLoginClick, onRegisterClick, onCartClick, onCartCount, onCha
     const user = JSON.parse(localStorage.getItem('user'));
     let socket;
     if (user && user._id) {
-      socket = io('http://localhost:5000', { transports: ['websocket'] });
+      socket = io(process.env.REACT_APP_API_URL || 'http://localhost:5000', { transports: ['websocket'] });
       socket.emit('join', user._id);
       socket.on('newMessage', (data) => {
         if (data.to === user._id) {
@@ -100,7 +100,7 @@ const Header = ({ onLoginClick, onRegisterClick, onCartClick, onCartCount, onCha
     const user = JSON.parse(localStorage.getItem('user'));
     let socket;
     if (user && user._id) {
-      socket = io('http://localhost:5000', { transports: ['websocket'] });
+      socket = io(process.env.REACT_APP_API_URL || 'http://localhost:5000', { transports: ['websocket'] });
       socket.emit('join', user._id);
       socket.on('orderNotification', (data) => {
         // Save notification to localStorage

@@ -62,6 +62,8 @@ function StaticModal({ children, onClose }) {
 
 const Post = () => {
   const [showModal, setShowModal] = useState(true);
+  // Get user from localStorage (or from context if available)
+  const user = JSON.parse(localStorage.getItem('user'));
   const handleClose = () => {
     setShowModal(false);
     window.location.href = '/';
@@ -77,7 +79,7 @@ const Post = () => {
           Add New Product
         </h2>
         <div style={{ margin: '0 auto', maxWidth: 370 }}>
-          <ProductForm />
+          <ProductForm user={user} />
         </div>
       </StaticModal>
       <style>{`

@@ -57,9 +57,8 @@ const ProductList = ({ filters = {}, searchTrigger, onAddToCart, onCartCountChan
     { value: 'newest', label: 'Newest' },
   ];
 
-  // Defensive logging and fallback for products
-  console.log('products:', products);
-  let filtered = Array.isArray(products) ? products : [];
+  // Filter and sort products for demo (replace with backend sort/filter if available)
+  let filtered = products;
   if (category !== 'all' && category !== 'All Categories') {
     filtered = filtered.filter(p => (p.category || '').toLowerCase().includes(category.toLowerCase()));
   }
@@ -258,8 +257,8 @@ const ProductList = ({ filters = {}, searchTrigger, onAddToCart, onCartCountChan
                         ? product.image.startsWith('http')
                           ? product.image
                           : product.image.startsWith('/uploads/')
-                            ? `http://localhost:5000${product.image}`
-                            : `http://localhost:5000/uploads/${product.image}`
+                            ? `${process.env.REACT_APP_API_URL}${product.image}`
+                            : `${process.env.REACT_APP_API_URL}/uploads/${product.image}`
                         : '/default-product.png'
                     } alt={product.name} loading="lazy" style={{ width: '100%', height: 110, objectFit: 'cover', borderTopLeftRadius: 0, borderTopRightRadius: 0, background: '#f8f8f8' }} />
                   )}
@@ -322,8 +321,8 @@ const ProductList = ({ filters = {}, searchTrigger, onAddToCart, onCartCountChan
                     ? selectedProduct.image.startsWith('http')
                       ? selectedProduct.image
                       : selectedProduct.image.startsWith('/uploads/')
-                        ? `http://localhost:5000${selectedProduct.image}`
-                        : `http://localhost:5000/uploads/${selectedProduct.image}`
+                        ? `${process.env.REACT_APP_API_URL}${selectedProduct.image}`
+                        : `${process.env.REACT_APP_API_URL}/uploads/${selectedProduct.image}`
                     : '/default-product.png'
                 } alt={selectedProduct.name} style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 10, background: '#f8f8f8' }} />
               </div>

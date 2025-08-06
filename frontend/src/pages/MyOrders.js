@@ -8,7 +8,7 @@ const MyOrders = () => {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    fetch('http://localhost:5000/api/orders/my', {
+    fetch(`${process.env.REACT_APP_API_URL}/api/orders/my`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',

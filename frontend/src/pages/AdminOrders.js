@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
-const BACKEND_BASE_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
+const BACKEND_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 const AdminOrders = () => {
   const [orders, setOrders] = useState([]);

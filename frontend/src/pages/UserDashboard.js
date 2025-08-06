@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Footer from '../components/Footer';
 import '../pages/styles/main.css';
+import ShopWalletSummary from './ShopWalletSummary';
 
 const UserDashboard = () => {
   const [user, setUser] = useState({});
@@ -19,6 +20,7 @@ const UserDashboard = () => {
 
   return (
     <div className="dashboard-container">
+      <ShopWalletSummary />
       <h2>User Dashboard</h2>
       <div className="profile-section">
         <h3>Profile Info</h3>

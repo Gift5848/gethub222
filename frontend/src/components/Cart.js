@@ -162,7 +162,7 @@ const Cart = ({ onClose, onCheckout, onCartCountChange }) => {
                       item.image?.startsWith('http')
                         ? item.image
                         : item.image
-                          ? `http://localhost:5000/uploads/${item.image}`
+                          ? `https://salty-shore-60443-1ab4fdf8d6bb.herokuapp.com/uploads/${item.image}`
                           : '/default-product.png'
                     } alt={item.name} style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, boxShadow: '0 2px 8px #e0e0e0', background: '#f8f8f8' }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
