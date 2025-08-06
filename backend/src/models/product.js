@@ -24,7 +24,15 @@ const productSchema = new mongoose.Schema({
     paymentCode: { type: String },
     postFee: { type: Number, default: 0 },
     seller: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // New field added
-    sellerId: { type: String, required: true } // Unique seller string ID (e.g., <shopId>-seN)
+    sellerId: {
+        type: String,
+        required: function() {
+            // Only required if the product owner is a seller
+            return this.ownerRole === 'seller';
+        }
+    }, // Unique seller string ID (e.g., <shopId>-seN)
+    status: { type: String, enum: ['active', 'pendingApproval', 'rejected'], default: 'active' }, // For admin approval of paid posts
+    receiptUrl: { type: String } // Path to uploaded receipt file
 });
 
 module.exports = mongoose.model('Product', productSchema);

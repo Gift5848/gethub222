@@ -24,6 +24,10 @@ exports.getProducts = async (req, res) => {
             query.shopId = req.user.shopId;
         }
         if (req.query.shopId) query.shopId = req.query.shopId; // Allow admin to filter by shopId
+        // Only show active products to non-admins
+        if (!req.user || req.user.role !== 'admin') {
+            query.status = 'active';
+        }
         const products = await Product.find(query)
             .populate({ path: 'owner', select: 'username email' })
             .populate({ path: 'shopId', select: 'shopName' });
@@ -79,13 +83,18 @@ exports.createProduct = async (req, res) => {
             productData.paymentMethod = req.body.paymentMethod || '';
             productData.paymentCode = req.body.paymentCode || '';
             productData.postFee = 10; // 10 birr per paid post
+            productData.status = 'pendingApproval'; // Require admin approval for paid posts
+        } else {
+            productData.status = 'active'; // Free posts are active immediately
         }
         // Always set shopId and managerId from the authenticated user
         productData.owner = req.user._id;
         // Always fetch the seller from DB to get the latest shopId and sellerId
         const sellerUser = await User.findById(req.user._id);
         productData.shopId = sellerUser && sellerUser.shopId ? sellerUser.shopId : undefined;
-        productData.sellerId = sellerUser && sellerUser.sellerId ? sellerUser.sellerId : undefined; // Ensure sellerId is set
+        if (req.user.role === 'seller') {
+            productData.sellerId = sellerUser && sellerUser.sellerId ? sellerUser.sellerId : undefined; // Ensure sellerId is set only for sellers
+        }
         productData.managerId = req.user.role === 'subadmin' ? req.user.managerId || req.user._id : req.user._id;
         // Set ownerRole for conditional shopId validation
         if (req.user && req.user.role) {
@@ -98,6 +107,10 @@ exports.createProduct = async (req, res) => {
             reason: 'Initial stock',
             user: req.user.email || req.user.username || String(req.user._id)
         }];
+        // Store receipt file path if present
+        if (req.files && req.files['receipt'] && req.files['receipt'][0]) {
+            productData.receiptUrl = `/uploads/${req.files['receipt'][0].filename}`;
+        }
         const product = new Product(productData);
         await product.save();
         // Increment postCount for free posts
@@ -188,6 +201,39 @@ exports.deleteProduct = async (req, res) => {
         }
         await product.deleteOne();
         res.json({ message: 'Product deleted' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// Approve a product (admin only)
+exports.approveProduct = async (req, res) => {
+    try {
+        // Only admin can approve
+        if (!req.user || req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Only admin can approve products.' });
+        }
+        const product = await Product.findById(req.params.id);
+        if (!product) return res.status(404).json({ error: 'Product not found' });
+        product.status = 'active';
+        await product.save();
+        res.json({ message: 'Product approved', product });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// Reject a product (admin only)
+exports.rejectProduct = async (req, res) => {
+    try {
+        if (!req.user || req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Only admin can reject products.' });
+        }
+        const product = await Product.findById(req.params.id);
+        if (!product) return res.status(404).json({ error: 'Product not found' });
+        product.status = 'rejected';
+        await product.save();
+        res.json({ message: 'Product rejected', product });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
