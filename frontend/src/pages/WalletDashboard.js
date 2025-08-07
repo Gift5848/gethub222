@@ -25,7 +25,7 @@ const WalletDashboard = () => {
   const fetchWallet = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`https://salty-shore-60443-1ab4fdf8d6bb.herokuapp.com/api/wallet/${user.shopId}`, {
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/wallet/${user.shopId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       console.log('WALLET API RESPONSE:', res.data); // Debug log
@@ -39,7 +39,7 @@ const WalletDashboard = () => {
   };
   const fetchTransactions = async () => {
     try {
-      const res = await axios.get(`https://salty-shore-60443-1ab4fdf8d6bb.herokuapp.com/api/wallet/${user.shopId}/transactions`, {
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/wallet/${user.shopId}/transactions`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setTransactions(res.data);
@@ -63,7 +63,7 @@ const WalletDashboard = () => {
   const handleDepositChapa = async () => {
     setDepositLoading(true);
     try {
-      const res = await axios.post('https://salty-shore-60443-1ab4fdf8d6bb.herokuapp.com/api/payment/chapa', {
+      const res = await axios.post(`${process.env.REACT_APP_API_URL}/api/payment/chapa`, {
         amount: Number(amount),
         reason: 'Wallet deposit',
       }, {
@@ -88,7 +88,7 @@ const WalletDashboard = () => {
     if (!depositChapaTxRef) return;
     setDepositChapaStatus('Checking...');
     try {
-      const res = await axios.get(`https://salty-shore-60443-1ab4fdf8d6bb.herokuapp.com/api/payments/chapa/status?tx_ref=${depositChapaTxRef}`, {
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/payments/chapa/status?tx_ref=${depositChapaTxRef}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.data && res.data.status === 'success') {
@@ -142,7 +142,7 @@ const WalletDashboard = () => {
       formData.append('paymentMethod', depositMethod);
       formData.append('paymentCode', depositCode);
       if (depositReceipt) formData.append('receipt', depositReceipt);
-      await axios.post('https://salty-shore-60443-1ab4fdf8d6bb.herokuapp.com/api/wallet/deposit', formData, {
+      await axios.post(`${process.env.REACT_APP_API_URL}/api/wallet/deposit`, formData, {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
       });
       setSuccess('Deposit successful!');

@@ -51,7 +51,7 @@ const ProductForm = ({ onProductAdded, user, isModal }) => {
         return;
       }
       try {
-        const res = await axios.get('https://salty-shore-60443-1ab4fdf8d6bb.herokuapp.com/api/auth/me', {
+        const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/auth/me`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setFreePostsLeft(3 - (res.data.postCount || 0));
@@ -68,7 +68,7 @@ const ProductForm = ({ onProductAdded, user, isModal }) => {
     const token = localStorage.getItem('token');
     if (!token) return;
     try {
-      const res = await axios.get('https://salty-shore-60443-1ab4fdf8d6bb.herokuapp.com/api/auth/me', {
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/auth/me`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setFreePostsLeft(3 - (res.data.postCount || 0));
@@ -90,7 +90,7 @@ const ProductForm = ({ onProductAdded, user, isModal }) => {
       setLoadingChapa(true);
       try {
         const token = localStorage.getItem('token');
-        const res = await axios.post('https://salty-shore-60443-1ab4fdf8d6bb.herokuapp.com/api/payment/chapa', {
+        const res = await axios.post(`${process.env.REACT_APP_API_URL}/api/payment/chapa`, {
           amount: 10,
           reason: 'Extra product post',
         }, {
@@ -133,7 +133,7 @@ const ProductForm = ({ onProductAdded, user, isModal }) => {
       formData.append('paymentMethod', paymentMethod);
       formData.append('paymentCode', paymentCode);
       if (receiptFile) formData.append('receipt', receiptFile);
-      await axios.post('https://salty-shore-60443-1ab4fdf8d6bb.herokuapp.com/api/products', formData, {
+      await axios.post(`${process.env.REACT_APP_API_URL}/api/products`, formData, {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
       });
       setMessage('Product added!');
@@ -170,7 +170,7 @@ const ProductForm = ({ onProductAdded, user, isModal }) => {
       const formData = new FormData();
       Object.entries(form).forEach(([key, value]) => formData.append(key, value));
       if (imageFile) formData.append('image', imageFile);
-      const res = await axios.post('https://salty-shore-60443-1ab4fdf8d6bb.herokuapp.com/api/products', formData, {
+      const res = await axios.post(`${process.env.REACT_APP_API_URL}/api/products`, formData, {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
       });
       setMessage('Product added!');
@@ -224,7 +224,7 @@ const ProductForm = ({ onProductAdded, user, isModal }) => {
     setChapaStatus('Checking...');
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get(`https://salty-shore-60443-1ab4fdf8d6bb.herokuapp.com/api/payments/chapa/status?tx_ref=${chapaTxRef}`, {
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/payments/chapa/status?tx_ref=${chapaTxRef}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.data && res.data.status === 'success') {
@@ -259,7 +259,7 @@ const ProductForm = ({ onProductAdded, user, isModal }) => {
       const fetchWallet = async () => {
         try {
           const token = getToken();
-          const url = `https://salty-shore-60443-1ab4fdf8d6bb.herokuapp.com/api/wallet/calculation?shopId=${user.shopId}&productPrice=${form.price}`;
+          const url = `${process.env.REACT_APP_API_URL}/api/wallet/calculation?shopId=${user.shopId}&productPrice=${form.price}`;
           console.log('Fetching wallet calculation:', { url, token });
           const res = await axios.get(url, {
             headers: { Authorization: `Bearer ${token}` }

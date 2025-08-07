@@ -19,6 +19,7 @@ This system is a comprehensive, modular fullstack platform designed for order, p
 10. Troubleshooting & FAQ
 11. Security Best Practices
 12. Support & Contact
+13. Shop Wallet-Based Product Posting Business Rule
 
 ---
 
@@ -207,6 +208,43 @@ This backend application is designed for comprehensive order, product, and user 
 - Review code comments and in-app help sections (if available)
 - For technical support, contact the backend development team or project maintainer
 - Report bugs or request features via the project issue tracker
+
+---
+
+## 13. Shop Wallet-Based Product Posting Business Rule
+
+### 1. Wallet Creation & Funding
+- A wallet is automatically created for each shop upon registration.
+- Shops can deposit funds into their wallet at any time.
+
+### 2. Product Posting Rule
+- To post a product, the shop’s wallet must have at least **2% of the product price** available.
+- When posting, **2% of the product price** is **frozen** in the wallet (not spendable).
+- The system recalculates and displays wallet balances during the posting process.
+
+### 3. Wallet Balance Calculation & Display
+- When a shop attempts to post a product, the system must display:
+  - **Current Wallet Balance**
+  - **Product Price**
+  - **Required Frozen Amount (2%)**
+  - **New Available Balance after freezing**
+  - **Frozen Balance**
+- This information is shown **before** confirming the product post.
+
+**Example:**
+- Wallet Balance: 1000 birr  
+- Product Price: 10,000 birr  
+- Frozen Amount: 2% of 10,000 = 200 birr  
+- Available Balance After Posting: 800 birr  
+- Frozen Balance: 200 birr  
+
+### 4. Upon Product Sale
+- The frozen 2% is **debited** from the wallet as a platform fee/commission.
+
+---
+
+**Summary:**  
+Shops must maintain a wallet balance to post products. 2% of the product price is frozen as a pending platform fee, clearly shown to the shop before posting. Upon sale, the frozen amount is collected as commission.
 
 ---
 

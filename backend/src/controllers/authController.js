@@ -359,7 +359,7 @@ exports.registerShop = async (req, res) => {
         console.log('ShopRequest created:', shopRequest);
         // Create a user with role subadmin, status pending (disable login until approved), and shopId
         const hashedPassword = await bcrypt.hash(password, 10);
-        const newUser = new User({ username: owner, email, password: hashedPassword, role: 'subadmin', active: false, shopId: shopRequest._id });
+        const newUser = new User({ username: owner, email, phone, password: hashedPassword, role: 'subadmin', active: false, shopId: shopRequest._id });
         await newUser.save();
         // Link userRef in shopRequest
         shopRequest.userRef = newUser._id;

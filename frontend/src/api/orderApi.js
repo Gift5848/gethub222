@@ -14,13 +14,13 @@ export const placeOrder = async ({ cart, buyer, seller, paymentMethod, deliveryO
     shopLocation,
     shopAddress
   };
-  return axios.post('https://salty-shore-60443-1ab4fdf8d6bb.herokuapp.com/api/orders/place-order', orderPayload, {
+  return axios.post(`${process.env.REACT_APP_API_URL}/api/orders/place-order`, orderPayload, {
     headers: { Authorization: `Bearer ${token}` }
   });
 };
 
 export const getMyOrders = async (token) => {
-  return axios.get('https://salty-shore-60443-1ab4fdf8d6bb.herokuapp.com/api/orders/my', {
+  return axios.get(`${process.env.REACT_APP_API_URL}/api/orders/my`, {
     headers: { Authorization: `Bearer ${token}` }
   });
 };
