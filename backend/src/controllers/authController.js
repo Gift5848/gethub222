@@ -333,6 +333,7 @@ exports.resetPassword = async (req, res) => {
 
 // Register a new shop (subadmin) - requires admin approval
 exports.registerShop = async (req, res) => {
+    console.log('registerShop req.body:', req.body);
     const { shopName, tin, location, address, owner, email, phone, password } = req.body;
     // License certificate file
     const licenseCertificate = req.file ? `/uploads/licenses/${req.file.filename}` : null;
