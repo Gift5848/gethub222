@@ -935,6 +935,8 @@ const handleLogout = () => {
   setAuth(false);
   setToken('');
   localStorage.removeItem('token');
+  localStorage.removeItem('admin_token');
+  localStorage.removeItem('admin_user');
   window.location.reload();
 };
  // --- User edit handlers (stubs, expand as needed) ---
