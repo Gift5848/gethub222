@@ -6,11 +6,16 @@ const multer = require('multer');
 const path = require('path');
 const uploadReceipt = require('../middleware/uploadReceipt');
 const orderWithReceiptController = require('../controllers/orderWithReceiptController');
+const fs = require('fs');
 
 // Multer setup for proof uploads
 const proofStorage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, '../../uploads/proof'));
+    const proofDir = path.join(__dirname, '../../uploads/proof');
+    if (!fs.existsSync(proofDir)) {
+      fs.mkdirSync(proofDir, { recursive: true });
+    }
+    cb(null, proofDir);
   },
   filename: function (req, file, cb) {
     cb(null, `${Date.now()}-${file.originalname}`);
@@ -85,5 +90,9 @@ router.patch('/:id/delivered', auth, orderController.markOrderDelivered);
 router.patch('/:id/confirmed', auth, orderController.markOrderConfirmed);
 // Mark as received by buyer
 router.patch('/:id/buyerreceived', auth, orderController.markOrderBuyerReceived);
+// Mark as received by delivery person
+router.patch('/:id/delivery-received', auth, orderController.markOrderDeliveryReceived);
+// Get orders for a shop (subadmin)
+router.get('/shop/:shopId', auth, orderController.getOrdersByShopId);
 
 module.exports = router;

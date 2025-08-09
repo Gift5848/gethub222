@@ -15,12 +15,21 @@ const Home = ({ onAddToCart, cartCount, setCartCount }) => {
     useEffect(() => {
         const params = new URLSearchParams(location.search);
         if (params.get('scroll') === 'products') {
-            setTimeout(() => {
+            let attempts = 0;
+            const tryScroll = () => {
                 const el = document.getElementById('products-section');
                 if (el) {
                     el.scrollIntoView({ behavior: 'smooth' });
+                    // Remove scroll param from URL after scrolling
+                    const newParams = new URLSearchParams(location.search);
+                    newParams.delete('scroll');
+                    window.history.replaceState({}, '', `${location.pathname}${newParams.toString() ? '?' + newParams.toString() : ''}`);
+                } else if (attempts < 5) {
+                    attempts++;
+                    setTimeout(tryScroll, 100);
                 }
-            }, 100);
+            };
+            tryScroll();
         } else {
             // Scroll to top if not scrolling to products
             window.scrollTo({ top: 0, behavior: 'smooth' });

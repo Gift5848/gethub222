@@ -20,6 +20,7 @@ const WalletDashboard = () => {
   const [depositChapaTxRef, setDepositChapaTxRef] = useState('');
   const [depositWaitingChapa, setDepositWaitingChapa] = useState(false);
   const [depositChapaStatus, setDepositChapaStatus] = useState('');
+  const [showChapaCodeBox, setShowChapaCodeBox] = useState(false);
 
   // Move fetchWallet and fetchTransactions outside useEffect for reuse
   const fetchWallet = async () => {
@@ -57,7 +58,13 @@ const WalletDashboard = () => {
     }
     fetchWallet();
     fetchTransactions();
-  }, [user?.shopId, token]);
+  }, [user?.shopId, token, window.walletRefreshTrigger]);
+
+  useEffect(() => {
+    if (depositMethod === 'Chapa') {
+      setShowChapaCodeBox(false); // Hide code box when Chapa is selected
+    }
+  }, [depositMethod]);
 
   // Chapa payment for deposit
   const handleDepositChapa = async () => {
@@ -71,9 +78,9 @@ const WalletDashboard = () => {
       });
       if (res.data && (res.data.paymentUrl || res.data.checkout_url) && (res.data.tx_ref || res.data.checkout_url)) {
         setDepositChapaTxRef(res.data.tx_ref || res.data.checkout_url.split('=')[1]);
-        setDepositWaitingChapa(true);
+        setDepositWaitingChapa(true); // Now waiting for Chapa payment
+        setShowDepositModal(false); // Close modal before redirect
         window.open(res.data.paymentUrl || res.data.checkout_url, '_blank');
-        setSuccess('Complete your payment in the new tab. Waiting for payment confirmation...');
       } else {
         setError('Failed to initiate Chapa payment.');
       }
@@ -118,6 +125,7 @@ const WalletDashboard = () => {
 
   const handleDepositSubmit = async () => {
     setError(''); setSuccess('');
+    console.log('[DEPOSIT SUBMIT DEBUG] depositMethod:', depositMethod);
     if (!amount || isNaN(amount) || Number(amount) <= 0) {
       setError('Enter a valid amount.');
       return;
@@ -159,6 +167,20 @@ const WalletDashboard = () => {
     setDepositLoading(false);
   };
 
+  useEffect(() => {
+    // Poll wallet and transactions every 7 seconds if there are pending transactions
+    let pollInterval;
+    if (transactions.some(tx => tx.status === 'pending')) {
+      pollInterval = setInterval(() => {
+        fetchWallet();
+        fetchTransactions();
+      }, 7000);
+    }
+    return () => {
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, [transactions]);
+
   if (loading) return <div style={{padding:40}}>Loading wallet info...<br/>user: {JSON.stringify(user)}<br/>shopId: {user?.shopId}<br/>token: {token ? 'present' : 'missing'}</div>;
   if (error) return <div style={{padding:40, color:'#e74c3c', fontWeight:600}}>{error}<br/>Debug: {apiError}<br/>user: {JSON.stringify(user)}<br/>shopId: {user?.shopId}<br/>token: {token ? 'present' : 'missing'}</div>;
   if (!wallet) return <div style={{padding:40}}>No wallet data found for this shop.<br/>user: {JSON.stringify(user)}<br/>shopId: {user?.shopId}<br/>token: {token ? 'present' : 'missing'}</div>;
@@ -189,22 +211,64 @@ const WalletDashboard = () => {
                 <option value="CBE">CBE</option>
                 <option value="Chapa">Chapa</option>
               </select>
-              {depositMethod === 'Chapa' && depositWaitingChapa && (
+              {depositMethod === 'CBE' && (
                 <div style={{color:'#3a6cf6',marginBottom:8,fontWeight:500}}>
-                  Waiting for Chapa payment confirmation...<br/>
-                  <button onClick={pollDepositChapaStatus} style={{marginTop:8,marginBottom:8,padding:'6px 14px',borderRadius:6,border:'1px solid #3a6cf6',background:'#f5f8ff',color:'#3a6cf6',fontWeight:600}}>Check Payment Status</button>
-                  <div style={{marginTop:4}}>{depositChapaStatus}</div>
+                  Transfer to account <b>100546554564654</b>
                 </div>
               )}
-              {depositMethod === 'Chapa' && !depositWaitingChapa && (
+              {depositMethod === 'Telebirr' && (
                 <div style={{color:'#3a6cf6',marginBottom:8,fontWeight:500}}>
-                  You will be redirected to Chapa to complete your payment. After payment, enter the confirmation code and upload your receipt below.
+                  Transfer to phone number <b>0912345678</b>
                 </div>
               )}
-              <input type="text" value={depositCode} onChange={e=>setDepositCode(e.target.value)} placeholder="Enter payment confirmation code" style={{marginBottom:8,padding:8,borderRadius:8,border:'1px solid #ccc'}} />
-              <label style={{fontWeight:600,marginBottom:4}}>Upload Payment Receipt (optional)</label>
-              <input type="file" accept="image/*" onChange={e=>setDepositReceipt(e.target.files[0])} style={{marginBottom:8,padding:8,borderRadius:8,border:'1px solid #ccc'}} />
-              <button className="btn btn-primary" onClick={handleDepositSubmit} style={{padding:'8px 16px',borderRadius:8}} disabled={depositLoading || depositWaitingChapa}>{depositLoading ? 'Processing...' : depositWaitingChapa ? 'Waiting for Payment...' : 'Submit Deposit'}</button>
+              {depositMethod === 'Chapa' && !showChapaCodeBox && (
+                <div style={{color:'#3a6cf6',marginBottom:8,fontWeight:500}}>
+                  <button className="btn btn-primary" onClick={async ()=>{
+                    setShowDepositModal(false); // Close modal and redirect
+                    await handleDepositChapa();
+                    setTimeout(()=>{
+                      setShowDepositModal(true);
+                      setShowChapaCodeBox(true);
+                    }, 1000); // Reopen modal and show code box after 1s
+                  }} style={{padding:'8px 16px',borderRadius:8}} disabled={depositLoading}>{depositLoading ? 'Processing...' : 'Submit Payment & Redirect'}</button>
+                </div>
+              )}
+              {depositMethod === 'Chapa' && showChapaCodeBox && (
+                <>
+                  <input type="text" value={depositCode} onChange={e=>setDepositCode(e.target.value)} placeholder="Enter payment confirmation code" style={{marginBottom:8,padding:8,borderRadius:8,border:'1px solid #ccc'}} />
+                  <button className="btn btn-primary" onClick={async ()=>{
+                    setDepositLoading(true);
+                    try {
+                      const formData = new FormData();
+                      formData.append('shopId', user.shopId);
+                      formData.append('amount', Number(amount));
+                      formData.append('paymentMethod', depositMethod);
+                      formData.append('paymentCode', depositCode);
+                      await axios.post(`${process.env.REACT_APP_API_URL}/api/wallet/deposit`, formData, {
+                        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
+                      });
+                      setSuccess('Deposit successful!');
+                      setAmount('');
+                      setDepositCode('');
+                      setShowDepositModal(false);
+                      fetchWallet();
+                      fetchTransactions();
+                    } catch (err) {
+                      setApiError(JSON.stringify(err.response?.data || err.message));
+                      setError(err.response?.data?.error || 'Deposit failed.');
+                    }
+                    setDepositLoading(false);
+                  }} style={{padding:'8px 16px',borderRadius:8}} disabled={depositLoading}>{depositLoading ? 'Processing...' : 'Submit Deposit'}</button>
+                </>
+              )}
+              {(depositMethod === 'CBE' || depositMethod === 'Telebirr') && (
+                <>
+                  <input type="text" value={depositCode} onChange={e=>setDepositCode(e.target.value)} placeholder="Enter payment confirmation code" style={{marginBottom:8,padding:8,borderRadius:8,border:'1px solid #ccc'}} />
+                  <label style={{fontWeight:600,marginBottom:4}}>Upload Payment Receipt (optional)</label>
+                  <input type="file" accept="image/*" onChange={e=>setDepositReceipt(e.target.files[0])} style={{marginBottom:8,padding:8,borderRadius:8,border:'1px solid #ccc'}} />
+                  <button className="btn btn-primary" onClick={handleDepositSubmit} style={{padding:'8px 16px',borderRadius:8}} disabled={depositLoading}>{depositLoading ? 'Processing...' : 'Submit Deposit'}</button>
+                </>
+              )}
               <button className="btn btn-outline" onClick={()=>setShowDepositModal(false)} style={{marginTop:8}}>Cancel</button>
             </div>
           </div>

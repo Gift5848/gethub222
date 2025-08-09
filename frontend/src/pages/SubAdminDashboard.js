@@ -243,10 +243,16 @@ const SubAdminDashboard = () => {
     }
   };
 
+  const [walletRefreshTrigger, setWalletRefreshTrigger] = useState(Date.now());
+  const [walletForceRefresh, setWalletForceRefresh] = useState(0);
+
   const handleProductUpdated = (updatedProduct) => {
+    console.log('[DEBUG] Product updated, triggering wallet refresh');
     setProducts(prev => prev.map(p => p._id === updatedProduct._id ? updatedProduct : p));
     setShowEditModal(false);
     setEditProduct(null);
+    setWalletRefreshTrigger(Date.now()); // Trigger wallet refresh
+    setWalletForceRefresh(prev => prev + 1); // Force wallet re-render
   };
 
   // User management handlers
@@ -353,6 +359,8 @@ const SubAdminDashboard = () => {
   // Add logout handler for subadmin
   const handleSubadminLogout = () => {
     localStorage.removeItem('user');
+    localStorage.removeItem('subadmin_user');
+    localStorage.removeItem('subadmin_token');
     window.location.href = '/subadmin';
   };
 
@@ -365,9 +373,10 @@ const SubAdminDashboard = () => {
       // Ignore errors, proceed with local cleanup
     }
     localStorage.removeItem('user');
+    localStorage.removeItem('subadmin_user');
+    localStorage.removeItem('subadmin_token');
     setUser(null); // Best practice: clear user state
-    // Optionally show a goodbye message (toast or alert)
-    // alert('You have been logged out. See you next time!');
+    window.location.href = '/subadmin';
   };
 
   // Custom profile logic for subadmin
@@ -546,31 +555,29 @@ const SubAdminDashboard = () => {
   // Fetch products managed by subadmin
   useEffect(() => {
     if (section === 'products-managed' && user && user.token) {
-      axios.get(`${API_BASE}/auth/subadmin/products-managed`, {
-        headers: { Authorization: `Bearer ${user.token}` }
-      })
+      axios.get(`${API_BASE}/products?shopId=${user.shopId}`,
+        { headers: { Authorization: `Bearer ${user.token}` } })
         .then(res => {
           if (Array.isArray(res.data) && res.data.length > 0) {
             setManagedProducts(res.data);
           } else {
-            // Fallback: fetch products by shopId if managedProducts is empty
-            axios.get(`${API_BASE}/products?shopId=${user.shopId}`, {
-              headers: { Authorization: `Bearer ${user.token}` }
-            })
-              .then(res2 => setManagedProducts(res2.data))
-              .catch(() => setManagedProducts([]));
+            setManagedProducts([]);
           }
         })
-        .catch(() => {
-          // Fallback: fetch products by shopId if managedProducts API fails
-          axios.get(`${API_BASE}/products?shopId=${user.shopId}`, {
-            headers: { Authorization: `Bearer ${user.token}` }
-          })
-            .then(res2 => setManagedProducts(res2.data))
-            .catch(() => setManagedProducts([]));
-        });
+        .catch(() => setManagedProducts([]));
     }
   }, [section, user, showEditModal]);
+
+  // Fetch orders for the subadmin's shop
+  useEffect(() => {
+    if (section === 'orders' && user && user.shopId) {
+      axios.get(`${API_BASE}/orders/shop/${user.shopId}`, {
+        headers: { Authorization: `Bearer ${user.token}` }
+      })
+        .then(res => setOrders(res.data))
+        .catch(() => setOrders([]));
+    }
+  }, [section, user]);
 
   // Section content renderers
   const renderSection = () => {
@@ -1253,7 +1260,6 @@ const SubAdminDashboard = () => {
               {/* Add/Edit Modal */}
               {showEditModal === 'add' && (
                 <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
-
                   <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 500, width: '95vw', borderRadius: 16, boxShadow: '0 8px 32px rgba(44,62,80,0.18)', padding: '2rem', position: 'relative' }}>
                     <button className="modal-close" onClick={() => setShowEditModal(false)} style={{ position: 'absolute', top: 18, right: 18, background: 'none', border: 'none', fontSize: 28, color: '#888', cursor: 'pointer', fontWeight: 700, zIndex: 10 }}>&times;</button>
                     <ProductForm user={user} onProductAdded={() => { setShowEditModal(false); setSection('products-managed'); }} />
@@ -1300,6 +1306,7 @@ const SubAdminDashboard = () => {
         }
         break;
       case 'wallet':
+        window.walletRefreshTrigger = walletRefreshTrigger + walletForceRefresh;
         return <WalletDashboard />;
       default:
         return null;

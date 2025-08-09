@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-const GOOGLE_MAPS_API_KEY = 'AIzaSyB8pbLVvoAFEkVCXyOiasOYZ36YEmdJwpU';
+const GOOGLE_MAPS_API_KEY = 'AIzaSyA3xmrPzrZt2hnNGmdbnVqPAYLJhMexJwo';
 const PER_KM_RATE = 30; // Example: 30 ETB per km
 
 function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {

@@ -450,17 +450,16 @@ const DeliveryDashboard = () => {
               <button className={styles.acceptBtn}
                 onClick={async e => {
                   e.stopPropagation();
-                  const token = localStorage.getItem('token');
+                  const token = localStorage.getItem('delivery_token');
                   try {
-                    await axios.patch(`/api/orders/${order._id}/confirmed`, {}, { headers: { Authorization: `Bearer ${token}` } });
-                    setOrders(orders => orders.map(o => o._id === order._id ? { ...o, status: 'confirmed' } : o));
+                    await axios.patch(`/api/orders/${order._id}/delivered`, {}, { headers: { Authorization: `Bearer ${token}` } });
+                    setOrders(orders => orders.map(o => o._id === order._id ? { ...o, status: 'delivered' } : o));
                     setToast('Order confirmed.');
                   } catch (err) {
                     setToast('Failed to confirm: ' + (err.response?.data?.error || err.message));
                   }
                 }}
-                style={{marginTop:8, background:'#00b894', color:'#fff', border:'none', borderRadius:4, padding:'8px 18px', fontWeight:600}}
-              >Confirm</button>
+                style={{marginTop:8}}>Confirm Delivery</button>
             )}
             {/* Show green confirmed button if already confirmed */}
             {order.status === 'confirmed' && (

@@ -95,6 +95,8 @@ function SlideBarModal({ children, onClose }) {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
+          maxHeight: '90vh', // Increased from 80vh for better scroll
+          overflowY: 'auto', // Ensure modal is scrollable
         }}
       >
         <div
@@ -104,7 +106,7 @@ function SlideBarModal({ children, onClose }) {
           onMouseDown={handleDragStart}
         />
         <button onClick={onClose} style={{ position: 'absolute', top: 18, right: 18, background: 'none', border: 'none', fontSize: 28, color: '#888', cursor: 'pointer', fontWeight: 700 }}>&times;</button>
-        <div ref={contentRef} style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: 12, width: '100%' }}>
+        <div ref={contentRef} style={{ maxHeight: '80vh', overflowY: 'auto', paddingRight: 12, width: '100%' }}>
           {children}
         </div>
       </div>

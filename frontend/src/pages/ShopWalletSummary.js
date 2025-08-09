@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
-const ShopWalletSummary = () => {
+const ShopWalletSummary = ({ refreshTrigger }) => {
   const user = JSON.parse(localStorage.getItem('user'));
   const [wallet, setWallet] = useState(null);
   const [error, setError] = useState('');
@@ -20,7 +20,11 @@ const ShopWalletSummary = () => {
       }
     };
     fetchWallet();
-  }, [user, token]);
+
+    // Real-time update: poll every 3 seconds
+    const interval = setInterval(fetchWallet, 3000);
+    return () => clearInterval(interval);
+  }, [user, token, refreshTrigger]);
 
   if (!user?.shopId) return null;
   return (

@@ -9,7 +9,8 @@ const walletSchema = new mongoose.Schema({
       type: { type: String, enum: ['deposit', 'freeze', 'debit', 'unfreeze', 'fee'], required: true },
       amount: { type: Number, required: true },
       date: { type: Date, default: Date.now },
-      description: String
+      description: String,
+      receiptUrl: String
     }
   ],
   createdAt: { type: Date, default: Date.now },

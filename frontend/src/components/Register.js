@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 const API_BASE = '/api/auth';
-const GOOGLE_MAPS_API_KEY = 'AIzaSyB8pbLVvoAFEkVCXyOiasOYZ36YEmdJwpU';
+const GOOGLE_MAPS_API_KEY = 'AIzaSyA3xmrPzrZt2hnNGmdbnVqPAYLJhMexJwo';
 
 const Register = ({ onSuccess, onSwitchToLogin, isModal }) => {
   const [registerType, setRegisterType] = useState('buyer'); // 'buyer' or 'shop'
@@ -234,7 +234,7 @@ const Register = ({ onSuccess, onSwitchToLogin, isModal }) => {
           <input
             type="text"
             name="username"
-            value={formData.username}
+            value={formData.username || ""}
             onChange={handleChange}
             required
             style={{
@@ -254,7 +254,7 @@ const Register = ({ onSuccess, onSwitchToLogin, isModal }) => {
           <input
             type="email"
             name="email"
-            value={formData.email}
+            value={formData.email || ""}
             onChange={handleChange}
             required
             style={{
@@ -274,7 +274,7 @@ const Register = ({ onSuccess, onSwitchToLogin, isModal }) => {
           <input
             type="text"
             name="phone"
-            value={formData.phone}
+            value={formData.phone || ""}
             onChange={handleChange}
             required
             style={{
@@ -294,7 +294,7 @@ const Register = ({ onSuccess, onSwitchToLogin, isModal }) => {
           <input
             type="password"
             name="password"
-            value={formData.password}
+            value={formData.password || ""}
             onChange={handleChange}
             required
             style={{
@@ -314,7 +314,7 @@ const Register = ({ onSuccess, onSwitchToLogin, isModal }) => {
           <input
             type="password"
             name="confirmPassword"
-            value={formData.confirmPassword}
+            value={formData.confirmPassword || ""}
             onChange={handleChange}
             required
             style={{
@@ -333,7 +333,7 @@ const Register = ({ onSuccess, onSwitchToLogin, isModal }) => {
           <label style={{ fontWeight: 700, color: '#333', marginBottom: 12, fontSize: '1.25rem', display: 'block' }}>City</label>
           <select
             name="city"
-            value={formData.city}
+            value={formData.city || ""}
             onChange={handleChange}
             required
             style={{
@@ -358,7 +358,7 @@ const Register = ({ onSuccess, onSwitchToLogin, isModal }) => {
             <option value="Other">Other</option>
           </select>
           <div style={{ marginBottom: 32, display: 'flex', alignItems: 'center' }}>
-            <input type="checkbox" id="terms" name="terms" checked={formData.terms} onChange={handleChange} required style={{ marginRight: 12, width: 22, height: 22 }} />
+            <input type="checkbox" id="terms" name="terms" checked={formData.terms || false} onChange={handleChange} required style={{ marginRight: 12, width: 22, height: 22 }} />
             <label htmlFor="terms" style={{ fontWeight: 700, color: '#222', fontSize: '1.15rem', verticalAlign: 'middle' }}>
               I agree to the Terms of Service and Privacy Policy
             </label>

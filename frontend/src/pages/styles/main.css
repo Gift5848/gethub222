@@ -23,6 +23,32 @@ body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   line-height: 1.6;
   min-height: 100vh;
+  overflow-y: auto;
+}
+
+html {
+  height: auto !important;
+}
+
+/* Modern custom scrollbar for all pages */
+body::-webkit-scrollbar {
+  width: 12px;
+  background: var(--light-color);
+}
+body::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #2c3e50 60%, #2980b9 100%);
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(44,62,80,0.15);
+}
+body::-webkit-scrollbar-track {
+  background: var(--light-color);
+  border-radius: 8px;
+}
+
+/* For Firefox */
+body {
+  scrollbar-width: thin;
+  scrollbar-color: #2980b9 #ecf0f1;
 }
 
 header {
@@ -55,7 +81,26 @@ footer {
   background: #fff;
   border-radius: 16px;
   box-shadow: 0 4px 24px #d0d0d0;
-  min-height: 70vh;
+  min-height: 0;
+  height: auto;
+  overflow: visible;
+}
+.home::-webkit-scrollbar {
+  width: 12px;
+  background: var(--light-color);
+}
+.home::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #2c3e50 60%, #2980b9 100%);
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(44,62,80,0.15);
+}
+.home::-webkit-scrollbar-track {
+  background: var(--light-color);
+  border-radius: 8px;
+}
+.home {
+  scrollbar-width: thin;
+  scrollbar-color: #2980b9 #ecf0f1;
 }
 
 .auth-container, .cart, .product-list, .checkout {
@@ -375,6 +420,39 @@ footer a:hover {
   color: #fff;
 }
 
+/* Modal Content Scrollbar */
+.modal-content {
+  max-height: 90vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #3498db #f5f8ff;
+}
+.modal-content::-webkit-scrollbar {
+  width: 10px;
+  background: #f5f8ff;
+}
+.modal-content::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #3498db 60%, #2c3e50 100%);
+  border-radius: 8px;
+}
+
+/* Optional: inner scroll area for long forms */
+.modal-scroll-area {
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: #3498db #f5f8ff;
+}
+.modal-scroll-area::-webkit-scrollbar {
+  width: 8px;
+  background: #f5f8ff;
+}
+.modal-scroll-area::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #3498db 60%, #2c3e50 100%);
+  border-radius: 8px;
+}
+
 /* --- SIDEBAR LAYOUT FIX: MAKE SIDEBAR LINKS A COLUMN, ADD SPACING, AND IMPROVE ICON ALIGNMENT --- */
 .future-sidebar nav {
   display: flex;
@@ -622,6 +700,181 @@ footer a:hover {
   margin-top: 24px;
 }
 
+/* --- DASHBOARD SPECIFIC STYLES --- */
+.dashboard-content, .main-content, .content-area {
+  height: 100vh;
+  overflow-y: auto;
+}
+.dashboard-content::-webkit-scrollbar, .main-content::-webkit-scrollbar, .content-area::-webkit-scrollbar {
+  width: 12px;
+  background: var(--light-color);
+}
+.dashboard-content::-webkit-scrollbar-thumb, .main-content::-webkit-scrollbar-thumb, .content-area::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #2c3e50 60%, #2980b9 100%);
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(44,62,80,0.15);
+}
+.dashboard-content::-webkit-scrollbar-track, .main-content::-webkit-scrollbar-track, .content-area::-webkit-scrollbar-track {
+  background: var(--light-color);
+  border-radius: 8px;
+}
+.dashboard-content, .main-content, .content-area {
+  scrollbar-width: thin;
+  scrollbar-color: #2980b9 #ecf0f1;
+}
+.dashboard-root {
+  height: 100vh;
+  overflow-y: auto;
+}
+.dashboard-root::-webkit-scrollbar {
+  width: 12px;
+  background: var(--light-color);
+}
+.dashboard-root::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #2c3e50 60%, #2980b9 100%);
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(44,62,80,0.15);
+}
+.dashboard-root::-webkit-scrollbar-track {
+  background: var(--light-color);
+  border-radius: 8px;
+}
+.dashboard-root {
+  scrollbar-width: thin;
+  scrollbar-color: #2980b9 #ecf0f1;
+}
+
+#root {
+  min-height: 100vh;
+  height: auto !important;
+}
+#root::-webkit-scrollbar {
+  width: 12px;
+  background: var(--light-color);
+}
+#root::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #2c3e50 60%, #2980b9 100%);
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(44,62,80,0.15);
+}
+#root::-webkit-scrollbar-track {
+  background: var(--light-color);
+  border-radius: 8px;
+}
+#root {
+  scrollbar-width: thin;
+  scrollbar-color: #2980b9 #ecf0f1;
+}
+
+#root, .home, .dashboard-root, .main-content, .dashboard-content {
+  height: 100vh;
+  overflow-y: scroll;
+}
+#root::-webkit-scrollbar, .home::-webkit-scrollbar, .dashboard-root::-webkit-scrollbar, .main-content::-webkit-scrollbar, .dashboard-content::-webkit-scrollbar {
+  width: 16px;
+  background: #e0e0e0;
+}
+#root::-webkit-scrollbar-thumb, .home::-webkit-scrollbar-thumb, .dashboard-root::-webkit-scrollbar-thumb, .main-content::-webkit-scrollbar-thumb, .dashboard-content::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #2980b9 0%, #e74c3c 100%);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(44,62,80,0.18);
+  border: 3px solid #fff;
+}
+#root::-webkit-scrollbar-track, .home::-webkit-scrollbar-track, .dashboard-root::-webkit-scrollbar-track, .main-content::-webkit-scrollbar-track, .dashboard-content::-webkit-scrollbar-track {
+  background: #e0e0e0;
+  border-radius: 8px;
+}
+#root, .home, .dashboard-root, .main-content, .dashboard-content {
+  scrollbar-width: thick;
+  scrollbar-color: #e74c3c #e0e0e0;
+}
+
+/* Order Status Tabs - Horizontal Scrollbar */
+.order-status-tabs {
+  display: flex;
+  flex-direction: row;
+  gap: 1rem;
+  overflow-x: auto;
+  padding: 0.75rem 0.5rem;
+  background: rgba(255,255,255,0.35);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  margin-bottom: 1.5rem;
+  scrollbar-width: thin;
+  scrollbar-color: #3498db #ecf0f1;
+}
+.order-status-tabs::-webkit-scrollbar {
+  height: 8px;
+  background: var(--light-color);
+}
+.order-status-tabs::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, #3498db 60%, #2c3e50 100%);
+  border-radius: 8px;
+}
+.order-status-tab {
+  padding: 0.5rem 1.25rem;
+  border-radius: 12px;
+  background: rgba(236, 240, 241, 0.7);
+  color: var(--primary-color);
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  border: 2px solid transparent;
+  box-shadow: 0 2px 6px rgba(44,62,80,0.08);
+}
+.order-status-tab.active {
+  background: rgba(52, 152, 219, 0.18);
+  color: var(--accent-color);
+  border-color: var(--accent-color);
+}
+.order-status-tab:hover {
+  background: rgba(52, 152, 219, 0.12);
+  color: var(--accent-color);
+}
+
+/* Checkout Horizontal Scroll Tabs */
+.checkout-tabs {
+  display: flex;
+  flex-direction: row;
+  gap: 1rem;
+  overflow-x: auto;
+  padding: 0.5rem 0.5rem;
+  background: rgba(255,255,255,0.35);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  margin-bottom: 1.2rem;
+  scrollbar-width: thin;
+  scrollbar-color: #27ae60 #f8f8f8;
+}
+.checkout-tabs::-webkit-scrollbar {
+  height: 8px;
+  background: #f8f8f8;
+}
+.checkout-tabs::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, #27ae60 60%, #2980b9 100%);
+  border-radius: 8px;
+}
+.checkout-tab {
+  padding: 0.5rem 1.25rem;
+  border-radius: 8px;
+  background: rgba(236, 240, 241, 0.7);
+  color: var(--primary-color);
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  border: 2px solid transparent;
+  box-shadow: 0 2px 6px rgba(44,62,80,0.08);
+}
+.checkout-tab.active {
+  background: rgba(39, 174, 96, 0.18);
+  color: #27ae60;
+  border-color: #27ae60;
+}
+.checkout-tab:hover {
+  background: rgba(39, 174, 96, 0.12);
+  color: #27ae60;
+}
+
 @media (max-width: 900px) {
   .future-header {
     flex-direction: column;
@@ -663,4 +916,52 @@ footer a:hover {
   header, footer {
     font-size: 0.95rem;
   }
+}
+
+/* Orders List Scrollable Tab */
+.orders-list-container {
+  max-height: 520px;
+  overflow-y: auto;
+  padding-right: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: #8e44ad #eaeaea;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(142,68,173,0.08);
+}
+.orders-list-container::-webkit-scrollbar {
+  width: 12px;
+  background: #eaeaea;
+  border-radius: 8px;
+}
+.orders-list-container::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #8e44ad 40%, #ad5a5a 100%);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(142,68,173,0.12);
+}
+.orders-list-container::-webkit-scrollbar-track {
+  background: #eaeaea;
+  border-radius: 8px;
+}
+/* Responsive for mobile */
+@media (max-width: 600px) {
+  .orders-list-container {
+    max-height: 340px;
+  }
+}
+
+/* Checkout Section Scrollbar */
+.checkout-scroll-area {
+  max-height: 80vh;
+  overflow-y: auto;
+  padding-right: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: #2980b9 #f8f8f8;
+}
+.checkout-scroll-area::-webkit-scrollbar {
+  width: 10px;
+  background: #f8f8f8;
+}
+.checkout-scroll-area::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #2980b9 60%, #27ae60 100%);
+  border-radius: 8px;
 }

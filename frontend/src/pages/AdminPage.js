@@ -344,13 +344,19 @@ const handleRejectProduct = async (productId) => {
       const res = await axios.get(`${API_BASE}/orders`, { headers: { Authorization: `Bearer ${token}` } });
       setOrders(res.data);
     } catch (err) {
+      let debugMsg = '';
+      if (err.response) {
+        debugMsg = `Status: ${err.response.status}, Data: ${JSON.stringify(err.response.data)}`;
+      } else {
+        debugMsg = err.message;
+      }
       if (err.response && (err.response.status === 400 || err.response.status === 401)) {
-        setOrdersError('Session expired or unauthorized. Please log in again.');
+        setOrdersError('Session expired or unauthorized. Please log in again. Debug: ' + debugMsg);
         setAuth(false);
         setToken('');
         localStorage.removeItem('admin_token');
       } else {
-        setOrdersError('Failed to fetch orders');
+        setOrdersError('Failed to fetch orders. Debug: ' + debugMsg);
       }
     }
     setOrdersLoading(false);
@@ -435,6 +441,18 @@ const handleRejectProduct = async (productId) => {
             </select>
           </label>
         </div>
+        {/* Debug output for troubleshooting */}
+        {ordersError && (
+          <div style={{background:'#fffbe6',color:'#b8860b',padding:12,borderRadius:8,marginBottom:16,border:'1px solid #ffe58f'}}>
+            <b>Order API Error Debug:</b><br/>{ordersError}
+          </div>
+        )}
+        {/* Show raw orders data for debugging if no orders and no loading */}
+        {!ordersLoading && !ordersError && orders.length === 0 && (
+          <div style={{background:'#fbeee6',color:'#b86b0b',padding:18,borderRadius:10,margin:'2rem auto',maxWidth:500,textAlign:'center',fontWeight:700,fontSize:18,border:'1px solid #ffd58f'}}>
+            No pending shop requests.
+          </div>
+        )}
         {ordersLoading ? <div>Loading orders...</div> : ordersError ? <div style={{ color: 'red' }}>{ordersError}</div> : (
           <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 12 }}>
             <thead>
@@ -510,9 +528,117 @@ const handleRejectProduct = async (productId) => {
             </tbody>
           </table>
         )}
+        {/* Order Details Modal */}
+        {viewingOrder && (
+          <div className="admin-dashboard modal" onClick={() => setViewingOrder(null)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+              <button className="close-btn" onClick={() => setViewingOrder(null)} title="Close">&times;</button>
+              <h3>Order Details</h3>
+              <table>
+                <tbody>
+                  <tr><td style={{ fontWeight: 600 }}>Order ID:</td><td>{viewingOrder._id}</td></tr>
+                  <tr><td style={{ fontWeight: 600 }}>Buyer:</td><td>{(() => {
+                    const b = viewingOrder.buyer;
+                    if (typeof viewingOrder.buyerName === 'string') return viewingOrder.buyerName;
+                    if (typeof viewingOrder.buyerId === 'string') return viewingOrder.buyerId;
+                    if (b && typeof b === 'object') {
+                      if (typeof b.name === 'string') return b.name;
+                      if (typeof b.username === 'string') return b.username;
+                      if (typeof b.email === 'string') return b.email;
+                      return '[object]';
+                    }
+                    if (typeof b === 'string') return b;
+                    return 'N/A';
+                  })()}</td></tr>
+                  <tr><td style={{ fontWeight: 600 }}>Shop:</td><td>{(() => {
+                    const s = viewingOrder.shop;
+                    if (typeof s === 'object' && s !== null) {
+                      if (typeof s.shopName === 'string') return s.shopName;
+                      if (typeof s.name === 'string') return s.name;
+                      if (typeof s._id === 'string') return s._id;
+                      return '[object]';
+                    }
+                    if (typeof viewingOrder.shopName === 'string') return viewingOrder.shopName;
+                    if (typeof viewingOrder.shopId === 'string') return viewingOrder.shopId;
+                    if (typeof s === 'string') return s;
+                    return 'N/A';
+                  })()}</td></tr>
+                  <tr><td style={{ fontWeight: 600 }}>Delivery Person:</td><td>{(() => {
+                    const d = viewingOrder.deliveryPerson;
+                    if (typeof viewingOrder.deliveryPersonName === 'string') return viewingOrder.deliveryPersonName;
+                    if (typeof viewingOrder.deliveryPersonId === 'string') return viewingOrder.deliveryPersonId;
+                    if (d && typeof d === 'object') {
+                      if (typeof d.name === 'string') return d.name;
+                      if (typeof d.username === 'string') return d.username;
+                      if (typeof d.email === 'string') return d.email;
+                      return '[object]';
+                    }
+                    if (typeof d === 'string') return d;
+                    return 'N/A';
+                  })()}</td></tr>
+                  <tr><td style={{ fontWeight: 600 }}>Status:</td><td>{viewingOrder.status}</td></tr>
+                  <tr><td style={{ fontWeight: 600 }}>Created At:</td><td>{viewingOrder.createdAt ? new Date(viewingOrder.createdAt).toLocaleString() : '-'}</td></tr>
+                  <tr><td style={{ fontWeight: 600 }}>Updated At:</td><td>{viewingOrder.updatedAt ? new Date(viewingOrder.updatedAt).toLocaleString() : '-'}</td></tr>
+                  <tr><td style={{ fontWeight: 600, verticalAlign: 'top' }}>Items:</td><td>{Array.isArray(viewingOrder.items) && viewingOrder.items.length > 0 ? (
+                    <table style={{width:'100%',background:'none',boxShadow:'none',fontSize:13}}>
+                      <thead><tr><th>Name</th><th>Qty</th><th>Price</th></tr></thead>
+                      <tbody>
+                        {viewingOrder.items.map((item, idx) => (
+                          <tr key={idx}>
+                            <td>{item.name || item.productName || item._id || '-'}</td>
+                            <td>{item.qty || item.quantity || 1}</td>
+                            <td>{item.price || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : '-'
+                  }</td></tr>
+                  <tr><td style={{ fontWeight: 600 }}>Total:</td><td>{viewingOrder.total || viewingOrder.amount || '-'}</td></tr>
+                  <tr><td style={{ fontWeight: 600 }}>Receipt:</td><td>{viewingOrder.receiptUrl ? (<a href={viewingOrder.receiptUrl.startsWith('http') ? viewingOrder.receiptUrl : `${process.env.REACT_APP_API_URL}${viewingOrder.receiptUrl}`} target="_blank" rel="noopener noreferrer">View Receipt</a>) : '-'}</td></tr>
+                </tbody>
+              </table>
+              {/* Order Actions */}
+              <div style={{marginTop:24,display:'flex',gap:12,flexWrap:'wrap'}}>
+                {viewingOrder.status === 'pending' && (
+                  <button style={{background:'#27ae60',color:'#fff',padding:'8px 18px',border:'none',borderRadius:8,fontWeight:700}} onClick={async()=>{
+                    try {
+                      await axios.patch(`${API_BASE}/orders/${viewingOrder._id}/approve-payment`, { action: 'approve' }, { headers: { Authorization: `Bearer ${token}` } });
+                      showToast('Order approved!');
+                      fetchOrders();
+                      setViewingOrder(null);
+                    } catch (err) {
+                      showToast('Failed to approve order','error');
+                    }
+                  }}>Approve</button>
+                )}
+                {viewingOrder.status !== 'rejected' && (
+                  <button style={{background:'#e74c3c',color:'#fff',padding:'8px 18px',border:'none',borderRadius:8,fontWeight:700}} onClick={async()=>{
+                    try {
+                      await axios.patch(`${API_BASE}/orders/${viewingOrder._id}/approve-payment`, { action: 'reject' }, { headers: { Authorization: `Bearer ${token}` } });
+                      showToast('Order rejected!');
+                      fetchOrders();
+                      setViewingOrder(null);
+                    } catch (err) {
+                      showToast('Failed to reject order','error');
+                    }
+                  }}>Reject</button>
+                )}
+                {/* Add more actions as needed */}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
+
+  // Defensive: if viewingOrder is set but not in orders, reset it
+  useEffect(() => {
+    if (viewingOrder && !orders.find(o => o._id === viewingOrder._id)) {
+      setViewingOrder(null);
+    }
+  }, [orders, viewingOrder]);
 
   useEffect(() => {
     if (auth) {
@@ -836,6 +962,7 @@ const handleRejectProduct = async (productId) => {
     { key: 'orders', label: 'Orders', icon: <FaRegListAlt /> },
     { key: 'users', label: 'Users', icon: <FaUsers /> },
     { key: 'analytics', label: 'Analytics', icon: <FaChartBar /> },
+    { key: 'wallet', label: 'Wallets', icon: <FaFileAlt /> }, // <-- Add Wallets section
     { key: 'reports', label: 'Reports', icon: <FaFileAlt /> },
     { key: 'activity', label: 'Activity Log', icon: <FaRegListAlt /> },
     { key: 'notifications', label: 'Notifications', icon: <FaRegBell /> },
@@ -1244,7 +1371,7 @@ function getShopNameForProduct(product) {
           {sidebarSection === 'products' && (
             <div>
               <h2>Manage Products</h2>
-              <div style={{display:'flex',gap:12,marginBottom:16}}>
+              <form onSubmit={handleSubmit} style={{display:'flex',gap:12,marginBottom:16}}>
                 <input
                   type="text"
                   placeholder="Search products..."
@@ -1273,19 +1400,8 @@ function getShopNameForProduct(product) {
                 </select>
                 <select value={productSellerFilter} onChange={e => setProductSellerFilter(e.target.value)} style={{flex:1,padding:'10px',borderRadius:8}}>
                   <option value="">All Sellers</option>
-                  {[...new Set(users.filter(u => u.role === 'seller').map(u => u.uniqueId || u._id))].map(id => {
-                    const user = users.find(u => (u.uniqueId === id || u._id === id) && u.role === 'seller');
-                    return <option key={id} value={id}>{user ? user.username : id}</option>;
-                  })}
+                  {/* Seller options should be mapped here */}
                 </select>
-              </div>
-              <button onClick={exportProductsCSV} className="btn btn-outline" style={{marginBottom: 16, float: 'right'}}>Export CSV</button>
-              <form onSubmit={handleSubmit} encType="multipart/form-data" style={{display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 18, background: '#232946', borderRadius: 12, padding: 16}}>
-                <input name="name" value={form.name} onChange={handleChange} placeholder="Name" required style={{flex: 1}} />
-                <input name="price" value={form.price} onChange={handleChange} placeholder="Price" required style={{flex: 1}} />
-                <input name="category" value={form.category} onChange={handleChange} placeholder="Category" style={{flex: 1}} />
-                <input name="image" value={form.image} onChange={handleChange} placeholder="Image URL or filename" style={{flex: 2}} />
-                <input type="file" accept="image/*" onChange={handleImageChange} style={{flex: 2}} />
                 <input name="description" value={form.description} onChange={handleChange} placeholder="Description" style={{flex: 2}} />
                 {/* Receipt upload section */}
                 <label style={{flex: 2, color: '#fff'}}>Upload Receipt (optional):
@@ -1293,7 +1409,10 @@ function getShopNameForProduct(product) {
                 </label>
                 <button type="submit" style={{flex: 1}}>{editing ? 'Update' : 'Add'} Product</button>
                 {editing && <button type="button" onClick={() => { setEditing(null); setForm({ name: '', price: '', category: '', image: '', description: '' }); setImageFile(null); }} style={{flex: 1, background: '#e74c3c'}}>Cancel</button>}
+
+
               </form>
+              {/* End of product management form section */}
               {lowStockProducts.length > 0 && (
                 <div className="low-stock-alert">
                   <span>⚠️ Low Stock Alert: </span>
@@ -1327,10 +1446,10 @@ function getShopNameForProduct(product) {
                         <td>
                           {/* Approve/Reject for pendingApproval products */}
                           {product.status === 'pendingApproval' ? (
-                            <>
+                            <React.Fragment>
                               <button className="btn btn-success" style={{marginRight: 6, background: '#27ae60', color: '#fff'}} onClick={() => handleApproveProduct(product._id)}>Approve</button>
                               <button className="btn btn-danger" style={{marginRight: 6, background: '#e74c3c', color: '#fff'}} onClick={() => handleRejectProduct(product._id)}>Reject</button>
-                            </>
+                            </React.Fragment>
                           ) : null}
                           <button className="btn btn-secondary" onClick={() => handleEdit(product)} style={{marginRight: 6}}>Edit</button>
                           <button className="btn btn-outline" onClick={() => handleDelete(product._id)} style={{ color: '#e74c3c' }}>Delete</button>
@@ -1532,6 +1651,105 @@ function getShopNameForProduct(product) {
                 </div>
               </div>
             </div>
+          )}
+          {sidebarSection === 'shopRequests' && (
+            <div>
+              <h2>Shop Registration Requests</h2>
+              {shopRequestsLoading ? (
+                <div>Loading shop requests...</div>
+              ) : shopRequestsError ? (
+                <div style={{ color: 'red' }}>{shopRequestsError}</div>
+              ) : shopRequests.length === 0 ? (
+                <div style={{background:'#fbeee6',color:'#b86b0b',padding:18,borderRadius:10,margin:'2rem auto',maxWidth:500,textAlign:'center',fontWeight:700,fontSize:18,border:'1px solid #ffd58f'}}>
+                  No pending shop requests.
+                </div>
+              ) : (
+                <table className="future-table" style={{ minWidth: 900 }}>
+                  <thead>
+                    <tr>
+                      <th>Shop Name</th>
+                      <th>Owner</th>
+                      <th>Email</th>
+                      <th>Phone</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                      <th>View</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shopRequests.map(req => (
+                      <tr key={req._id}>
+                        <td>{req.shopName || req.name}</td>
+                        <td>{req.ownerName || req.owner || '-'}</td>
+                        <td>{req.email}</td>
+                        <td>{req.phone}</td>
+                        <td>{req.status}</td>
+                        <td>
+                          {req.status === 'pending' && (
+                            <>
+                              <button onClick={() => handleShopRequestAction(req._id, 'approve')} style={{ background: '#27ae60', color: '#fff', marginRight: 8 }}>Approve</button>
+                              <button onClick={() => handleShopRequestAction(req._id, 'reject')} style={{ background: '#e74c3c', color: '#fff' }}>Reject</button>
+                            </>
+                          )}
+                        </td>
+                        <td>
+                          <button onClick={() => setViewingRequest(req)} style={{ background: '#3a6cf6', color: '#fff' }}>View</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              {shopRequestActionMsg && <div style={{ marginTop: 12, color: shopRequestActionMsg.startsWith('Error') ? 'red' : 'green' }}>{shopRequestActionMsg}</div>}
+              {/* Modal for viewing shop request details */}
+              {viewingRequest && (
+                <div style={{
+                  position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }} onClick={() => setViewingRequest(null)}>
+                  <div style={{ background: '#fff', borderRadius: 12, padding: 32, minWidth: 400, maxWidth: 600, boxShadow: '0 4px 32px #0003', position: 'relative' }} onClick={e => e.stopPropagation()}>
+                    <button onClick={() => setViewingRequest(null)} style={{ position: 'absolute', top: 12, right: 12, background: 'none', border: 'none', fontSize: 22, cursor: 'pointer' }}>&times;</button>
+                    <h3>Shop Request Details</h3>
+                    <table style={{ width: '100%', marginTop: 12 }}>
+                      <tbody>
+                        <tr><td style={{ fontWeight: 600 }}>Shop Name:</td><td>{viewingRequest.shopName}</td></tr>
+                        <tr><td style={{ fontWeight: 600 }}>Owner:</td><td>{viewingRequest.owner}</td></tr>
+                        <tr><td style={{ fontWeight: 600 }}>Email:</td><td>{viewingRequest.email}</td></tr>
+                        <tr><td style={{ fontWeight: 600 }}>Phone:</td><td>{viewingRequest.phone}</td></tr>
+                        <tr><td style={{ fontWeight: 600 }}>TIN:</td><td>{viewingRequest.tin}</td></tr>
+                        <tr><td style={{ fontWeight: 600 }}>Address:</td><td>{viewingRequest.address}</td></tr>
+                        <tr><td style={{ fontWeight: 600 }}>Location:</td><td>{viewingRequest.location}</td></tr>
+                        <tr><td style={{ fontWeight: 600 }}>Status:</td><td>{viewingRequest.status}</td></tr>
+                        <tr>
+  <td style={{ fontWeight: 600 }}>License Certificate:</td>
+  <td>
+    {viewingRequest.licenseCertificate ? (
+      <a
+        href={
+          viewingRequest.licenseCertificate.startsWith('/uploads/')
+            ? viewingRequest.licenseCertificate
+            : `/uploads/${viewingRequest.licenseCertificate}`
+        }
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        View File
+      </a>
+    ) : '-'}
+  </td>
+</tr>
+                        <tr><td style={{ fontWeight: 600 }}>Created At:</td><td>{new Date(viewingRequest.createdAt).toLocaleString()}</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {sidebarSection === 'orders' && <OrdersSection />}
+          {sidebarSection === 'wallet' && (
+            <React.Suspense fallback={<div>Loading Wallets...</div>}>
+              {React.createElement(require('./AdminWalletTransactions').default)}
+            </React.Suspense>
           )}
         </div>
       </div>

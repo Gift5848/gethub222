@@ -253,9 +253,9 @@ const ProductForm = ({ onProductAdded, user, isModal }) => {
     };
   }, [paymentMethod, waitingChapa, chapaTxRef]);
 
-  // Fetch wallet calculation for sellers when price changes
+  // Fetch wallet calculation for sellers and subadmins when price changes
   React.useEffect(() => {
-    if (user?.role === 'seller' && form.price && user.shopId) {
+    if ((user?.role === 'seller' || user?.role === 'subadmin') && form.price && user.shopId) {
       const fetchWallet = async () => {
         try {
           const token = getToken();
@@ -351,21 +351,26 @@ const ProductForm = ({ onProductAdded, user, isModal }) => {
         </select>
         <label style={{ fontWeight: 700, color: '#333', marginBottom: 10, fontSize: '1rem', display: 'block' }}>Image</label>
         <input type="file" accept="image/*" onChange={handleImageChange} style={{ marginBottom: 24 }} />
-        {user?.role === 'seller' && form.price && (
-          <div style={{background:'#f5f8ff',borderRadius:8,padding:12,marginBottom:18,border:'1px solid #dbeafe'}}>
-            <div style={{fontWeight:600,marginBottom:6}}>Wallet Calculation</div>
-            {walletError && <div style={{color:'#e74c3c',fontWeight:600}}>{walletError}</div>}
-            {walletInfo && (
-              <ul style={{listStyle:'none',padding:0,margin:0}}>
-                <li>Current Wallet Balance: <b>{walletInfo.currentBalance} birr</b></li>
-                <li>Product Price: <b>{walletInfo.productPrice} birr</b></li>
-                <li>Required Frozen Amount (2%): <b>{walletInfo.requiredFrozen} birr</b></li>
-                <li>New Available Balance: <b>{walletInfo.availableAfter} birr</b></li>
-                <li>Frozen Balance: <b>{walletInfo.frozenBalance} birr</b></li>
-              </ul>
-            )}
-          </div>
-        )}
+        {(user?.role === 'seller' || user?.role === 'subadmin') && form.price && (
+  <div style={{background:'#f5f8ff',borderRadius:8,padding:12,marginBottom:18,border:'1px solid #dbeafe'}}>
+    <div style={{fontWeight:600,marginBottom:6}}>Wallet Calculation</div>
+    {walletError && <div style={{color:'#e74c3c',fontWeight:600}}>{walletError}</div>}
+    {walletInfo && (
+      <ul style={{listStyle:'none',padding:0,margin:0}}>
+        <li>Current Wallet Balance: <b>{walletInfo.currentBalance} birr</b></li>
+        <li>Product Price: <b>{walletInfo.productPrice} birr</b></li>
+        <li>Required Frozen Amount (2%): <b>{walletInfo.requiredFrozen} birr</b></li>
+        <li>New Available Balance: <b>{walletInfo.availableAfter} birr</b></li>
+        <li>Frozen Balance: <b>{walletInfo.frozenBalance} birr</b></li>
+      </ul>
+    )}
+    {walletInfo && walletInfo.availableAfter < 0 && (
+      <div style={{color:'#e74c3c',fontWeight:600,marginTop:8}}>
+        Insufficient balance, please deposit to your wallet to post this product.
+      </div>
+    )}
+  </div>
+)}
         <button type="submit" style={{ background: '#e74c3c', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: '1.1rem', marginTop: 0, marginBottom: 24, cursor: 'pointer', width: 180, alignSelf: 'flex-start', transition: 'background 0.2s' }}
           disabled={user?.role === 'seller' && walletInfo && walletInfo.availableAfter < 0}>
           Add Product

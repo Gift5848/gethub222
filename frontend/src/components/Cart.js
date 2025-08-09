@@ -159,11 +159,13 @@ const Cart = ({ onClose, onCheckout, onCartCountChange }) => {
                     marginBottom: 22,
                   }}>
                     <img src={
-                      item.image?.startsWith('http')
-                        ? item.image
-                        : item.image
-                          ? `${process.env.REACT_APP_API_URL}/uploads/${item.image}`
-                          : '/default-product.png'
+                      item.image
+                        ? item.image.startsWith('http')
+                          ? item.image
+                          : item.image.startsWith('/uploads/')
+                            ? `${process.env.REACT_APP_API_URL}${item.image}`
+                            : `${process.env.REACT_APP_API_URL}/uploads/${item.image}`
+                        : '/mekina-mart-logo.png.png' // fallback to logo if no image
                     } alt={item.name} style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, boxShadow: '0 2px 8px #e0e0e0', background: '#f8f8f8' }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 700, fontSize: 19, color: '#222', marginBottom: 2 }}>{item.name}</div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-const GOOGLE_MAPS_API_KEY = 'AIzaSyB8pbLVvoAFEkVCXyOiasOYZ36YEmdJwpU';
+const GOOGLE_MAPS_API_KEY = 'AIzaSyA3xmrPzrZt2hnNGmdbnVqPAYLJhMexJwo';
 
 const ShopRegister = () => {
   const [shopName, setShopName] = useState('');

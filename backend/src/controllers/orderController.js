@@ -437,6 +437,10 @@ const getDeliveryOrders = async (req, res) => {
 // Proof of delivery upload
 const uploadProofOfDelivery = async (req, res) => {
   try {
+    const proofDir = require('path').join(__dirname, '../../uploads/proof');
+    if (!fs.existsSync(proofDir)) {
+      fs.mkdirSync(proofDir, { recursive: true });
+    }
     const order = await Order.findById(req.params.id);
     if (!order) return res.status(404).json({ error: 'Order not found' });
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
@@ -614,18 +618,20 @@ const markOrderHandedOver = async (req, res) => {
     const { id } = req.params;
     const order = await Order.findById(id);
     if (!order) return res.status(404).json({ error: 'Order not found' });
-    // Allow seller, subadmin (who owns the seller), or any user with matching shopId to hand over
+    // Allow seller to hand over their own order
     if (req.user.role === 'seller') {
       if (String(order.seller) !== String(req.user._id)) {
         console.log('[HANDOVER] Forbidden: seller mismatch', { orderSeller: order.seller, userId: req.user._id });
         return res.status(403).json({ error: 'Forbidden' });
       }
     } else if (req.user.role === 'subadmin') {
-      const sellerUser = await User.findById(order.seller);
-      if (!sellerUser || String(sellerUser.owner) !== String(req.user._id)) {
-        console.log('[HANDOVER] Forbidden: subadmin not owner', { sellerOwner: sellerUser?.owner, userId: req.user._id });
+      if (String(order.shopId) === String(req.user.shopId)) {
+        // Allow handover if shopId matches
+      } else {
+        console.log('[HANDOVER] Forbidden: subadmin shopId mismatch', { userId: req.user._id, orderShopId: order.shopId, userShopId: req.user.shopId });
         return res.status(403).json({ error: 'Forbidden' });
       }
+      // No sellerUser/owner check for subadmin
     } else if (req.user.shopId && String(order.shopId) === String(req.user.shopId)) {
       // Allow shop managers or users with matching shopId
       // Optionally, check for a specific shop manager role/privilege here
@@ -661,8 +667,21 @@ const markOrderDelivered = async (req, res) => {
     const { id } = req.params;
     const order = await Order.findById(id);
     if (!order) return res.status(404).json({ error: 'Order not found' });
+    // Debug logging for delivery confirmation
+    console.log('DELIVERY CONFIRMATION:', {
+      userRole: req.user.role,
+      userId: req.user._id,
+      orderDeliveryPerson: order.deliveryPerson,
+      orderId: order._id
+    });
     // Only delivery person can mark as delivered
     if (req.user.role !== 'delivery' || String(order.deliveryPerson) !== String(req.user._id)) {
+      console.log('DELIVERY CONFIRMATION FORBIDDEN:', {
+        userRole: req.user.role,
+        userId: req.user._id,
+        orderDeliveryPerson: order.deliveryPerson,
+        orderId: order._id
+      });
       return res.status(403).json({ error: 'Forbidden' });
     }
     order.status = 'delivered';
@@ -732,9 +751,12 @@ const markOrderConfirmed = async (req, res) => {
     const { id } = req.params;
     const order = await Order.findById(id);
     if (!order) return res.status(404).json({ error: 'Order not found' });
-    // Only delivery person can confirm
-    if (req.user.role !== 'delivery' || String(order.deliveryPerson) !== String(req.user._id)) {
-      return res.status(403).json({ error: 'Forbidden' });
+    // Allow delivery person, admin, or subadmin to confirm
+    const isDelivery = req.user.role === 'delivery' && String(order.deliveryPerson) === String(req.user._id);
+    const isAdmin = req.user.role === 'admin';
+    const isSubadmin = req.user.role === 'subadmin';
+    if (!isDelivery && !isAdmin && !isSubadmin) {
+      return res.status(403).json({ error: 'Forbidden'});
     }
     order.status = 'confirmed';
     await order.save();
@@ -744,11 +766,11 @@ const markOrderConfirmed = async (req, res) => {
       io.to(order.seller.toString()).emit('orderNotification', {
         type: 'order_confirmed',
         orderId: order._id,
-        message: `Order ${order._id} has been confirmed by the delivery person.`
+        message: `Order ${order._id} has been confirmed.`
       });
       emitOrdersUpdate(io);
     }
-    res.json({ message: 'Order marked as confirmed by delivery person.', order });
+    res.json({ message: 'Order marked as confirmed.', order });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -777,6 +799,39 @@ const markOrderBuyerReceived = async (req, res) => {
       emitOrdersUpdate(io);
     }
     res.json({ message: 'Order marked as received by buyer.', order });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Mark order as delivery received
+const markOrderDeliveryReceived = async (req, res) => {
+  try {
+    const orderId = req.params.id;
+    const order = await Order.findById(orderId);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+
+    // Only allow admin, subadmin, or delivery person
+    if (!['admin', 'subadmin', 'delivery'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    order.status = 'delivery-received';
+    await order.save();
+    res.json({ message: 'Order marked as delivery received.', order });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Get orders by shopId (for subadmin dashboard)
+const getOrdersByShopId = async (req, res) => {
+  const { shopId } = req.params;
+  try {
+    const orders = await Order.find({ shopId })
+      .populate('products.product', 'name price')
+      .populate('buyer', 'username email');
+    res.json(orders);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -846,6 +901,8 @@ module.exports = {
   rejectDeliveryOrder,
   markOrderConfirmed,
   markOrderBuyerReceived,
+  markOrderDeliveryReceived,
+  getOrdersByShopId,
   // ...add other functions here as needed
 };
 

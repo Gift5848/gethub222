@@ -355,7 +355,6 @@ exports.registerShop = async (req, res) => {
             shopName, licenseCertificate, tin, location, address, owner, email, phone, status: 'pending'
         });
         await shopRequest.save();
-        console.log('ShopRequest created in collection:', shopRequest.collection.collectionName);
         console.log('ShopRequest created:', shopRequest);
         // Create a user with role subadmin, status pending (disable login until approved), and shopId
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -370,4 +369,10 @@ exports.registerShop = async (req, res) => {
     } catch (error) {
         res.status(500).json({ message: error.message || 'Error registering shop', error });
     }
+};
+
+// Logout endpoint (dummy, for frontend compatibility)
+exports.logout = async (req, res) => {
+    // Optionally, blacklist token here if you implement token blacklisting
+    res.json({ message: 'Logged out successfully.' });
 };

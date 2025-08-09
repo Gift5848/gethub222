@@ -251,17 +251,20 @@ const ProductList = ({ filters = {}, searchTrigger, onAddToCart, onCartCountChan
               <div className="product-card" key={product._id} style={{ background: '#fff', borderRadius: 0, boxShadow: '0 2px 8px rgba(44,62,80,0.08)', padding: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', minHeight: 320, maxWidth: 320, margin: '0 auto' }}>
                 <div className="product-badge" style={{ position: 'absolute', top: 10, left: 10, background: '#e74c3c', color: '#fff', fontWeight: 700, fontSize: 13, borderRadius: 4, padding: '2px 8px', zIndex: 2 }}>New</div>
                 <div className="product-image">
-                  {product.image && (
-                    <img src={
+                  <img
+                    src={
                       product.image
                         ? product.image.startsWith('http')
                           ? product.image
                           : product.image.startsWith('/uploads/')
                             ? `${process.env.REACT_APP_API_URL}${product.image}`
                             : `${process.env.REACT_APP_API_URL}/uploads/${product.image}`
-                        : '/default-product.png'
-                    } alt={product.name} loading="lazy" style={{ width: '100%', height: 110, objectFit: 'cover', borderTopLeftRadius: 0, borderTopRightRadius: 0, background: '#f8f8f8' }} />
-                  )}
+                        : '/mekina-mart-logo.png.png' // fallback to logo if no image
+                    }
+                    alt={product.name}
+                    loading="lazy"
+                    style={{ width: '100%', height: 110, objectFit: 'cover', borderTopLeftRadius: 0, borderTopRightRadius: 0, background: '#f8f8f8' }}
+                  />
                 </div>
                 <div className="product-info" style={{ padding: '12px 12px 10px', flex: 1, display: 'flex', flexDirection: 'column' }}>
                   <span className="product-category" style={{ color: '#2980ef', fontWeight: 700, fontSize: 13, marginBottom: 2 }}>{product.category || 'Engine Parts'}</span>
@@ -323,7 +326,7 @@ const ProductList = ({ filters = {}, searchTrigger, onAddToCart, onCartCountChan
                       : selectedProduct.image.startsWith('/uploads/')
                         ? `${process.env.REACT_APP_API_URL}${selectedProduct.image}`
                         : `${process.env.REACT_APP_API_URL}/uploads/${selectedProduct.image}`
-                    : '/default-product.png'
+                    : '/mekina-mart-logo.png.png' // fallback to logo if no image
                 } alt={selectedProduct.name} style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 10, background: '#f8f8f8' }} />
               </div>
               <div style={{ flex: '2 1 180px', minWidth: 120 }}>

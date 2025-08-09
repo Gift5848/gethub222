@@ -66,18 +66,10 @@ exports.markNotificationRead = async (req, res) => {
 exports.getShopRequests = async (req, res) => {
     // Debug logging
     console.log('getShopRequests called');
-    console.log('Method:', req.method);
-    console.log('URL:', req.originalUrl);
-    console.log('Headers:', req.headers);
-    if (req.user) {
-        console.log('User:', req.user);
-    } else {
-        console.log('No req.user');
-    }
     try {
         // Only return pending requests
         const requests = await ShopRequest.find({ status: 'pending' }).sort({ createdAt: -1 });
-        console.log('ShopRequest.find() result:', JSON.stringify(requests, null, 2));
+        console.log('ShopRequest.find({ status: "pending" }) result:', JSON.stringify(requests, null, 2));
         res.json(requests);
     } catch (err) {
         console.log('getShopRequests error:', err);

@@ -15,7 +15,7 @@ const defaultCenter = { lat: 0, lng: 0 };
 const DeliveryMap = ({ orders = [], onSelectOrder, deliveryLocations = {}, showDeliveryPopups = false }) => {
   // Use your Google Maps API key here
   const { isLoaded } = useJsApiLoader({
-    googleMapsApiKey: 'AIzaSyB8pbLVvoAFEkVCXyOiasOYZ36YEmdJwpU', // <-- Replace with your key
+    googleMapsApiKey: 'AIzaSyA3xmrPzrZt2hnNGmdbnVqPAYLJhMexJwo', // <-- Replace with your key
   });
 
   const mapRef = React.useRef();

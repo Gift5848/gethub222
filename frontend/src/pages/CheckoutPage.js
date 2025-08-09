@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const GOOGLE_MAPS_API_KEY = 'AIzaSyB8pbLVvoAFEkVCXyOiasOYZ36YEmdJwpU'; // Replace with your actual API key
+const GOOGLE_MAPS_API_KEY = 'AIzaSyA3xmrPzrZt2hnNGmdbnVqPAYLJhMexJwo'; // Replace with your actual API key
 
 const CheckoutPage = () => {
   const [deliveryLocation, setDeliveryLocation] = useState('');

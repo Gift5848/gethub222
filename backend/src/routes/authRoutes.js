@@ -1,5 +1,5 @@
 const express = require('express');
-const { register, login, listUsers, deleteUser, createSubAdmin, updateUser, listSellersForSubadmin, createSellerForSubadmin, updateSellerForSubadmin, deleteSellerForSubadmin, resetSellerPasswordForSubadmin, toggleSellerStatusForSubadmin, forgotPassword, resetPassword, registerShop } = require('../controllers/authController');
+const { register, login, listUsers, deleteUser, createSubAdmin, updateUser, listSellersForSubadmin, createSellerForSubadmin, updateSellerForSubadmin, deleteSellerForSubadmin, resetSellerPasswordForSubadmin, toggleSellerStatusForSubadmin, forgotPassword, resetPassword, registerShop, logout } = require('../controllers/authController');
 const router = express.Router();
 const auth = require('../middleware/authMiddleware');
 const { adminOnly, requireSubadmin } = require('../middleware/authMiddleware');
@@ -24,6 +24,7 @@ router.get('/me', auth, async (req, res) => {
 });
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
+router.post('/logout', logout);
 
 // Protect all /subadmin* routes with requireSubadmin middleware
 router.use('/subadmin', auth, requireSubadmin);

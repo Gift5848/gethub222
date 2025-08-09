@@ -14,16 +14,23 @@ const Orders = () => {
   const [review, setReview] = useState({ rating: 5, comment: '' });
 
   useEffect(() => {
+    const user = JSON.parse(localStorage.getItem('user')) || JSON.parse(localStorage.getItem('subadmin_user'));
     const token = localStorage.getItem('token');
-    axios.get(`${process.env.REACT_APP_API_URL}/api/orders/my`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => setOrders(res.data))
-      .catch(err => {
-        const msg = err.response?.data?.error || err.message || 'Failed to load orders.';
-        setError('Failed to load orders. ' + msg);
+    const fetchOrders = () => {
+      if (!user?._id) return;
+      axios.get(`${process.env.REACT_APP_API_URL}/api/orders/my`, {
+        headers: { Authorization: `Bearer ${token}` }
       })
-      .finally(() => setLoading(false));
+        .then(res => setOrders(res.data))
+        .catch(err => {
+          const msg = err.response?.data?.error || err.message || 'Failed to load orders.';
+          setError('Failed to load orders. ' + msg);
+        })
+        .finally(() => setLoading(false));
+    };
+    fetchOrders();
+    const interval = setInterval(fetchOrders, 3000); // Poll every 3 seconds
+    return () => clearInterval(interval);
   }, []);
 
   const cancelOrder = async (orderId) => {

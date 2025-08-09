@@ -2,11 +2,32 @@
   "dependencies": {
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
     "dotenv": "^17.2.0",
+    "express": "^5.1.0",
     "file-saver": "^2.0.5",
     "mongoose": "^8.16.3",
+    "mongoosh": "^0.0.7",
     "react-chartjs-2": "^5.3.0",
     "react-router-dom": "^6.23.1",
     "uuid": "^11.1.0"
-  }
+  },
+  "name": "gethub2",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Gift5848/gethub222.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Gift5848/gethub222/issues"
+  },
+  "homepage": "https://github.com/Gift5848/gethub222#readme",
+  "description": ""
 }
