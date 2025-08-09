@@ -30,5 +30,8 @@
   },
   "author": "Your Name",
   "license": "MIT",
-  "keywords": []
+  "keywords": [],
+  "engines": {
+    "node": "18.x"
+  }
 }
