@@ -4,6 +4,7 @@ const router = express.Router();
 const auth = require('../middleware/authMiddleware');
 const { adminOnly, requireSubadmin } = require('../middleware/authMiddleware');
 const User = require('../models/user');
+const Product = require('../models/product');
 const uploadLicense = require('../middleware/uploadLicense');
 
 router.post('/register', register);
@@ -40,5 +41,49 @@ router.put('/subadmin/sellers/:id', updateSellerForSubadmin); // already protect
 router.delete('/subadmin/sellers/:id', deleteSellerForSubadmin); // already protected above
 router.post('/subadmin/sellers/:id/reset-password', resetSellerPasswordForSubadmin); // already protected above
 router.post('/subadmin/sellers/:id/toggle-status', toggleSellerStatusForSubadmin); // already protected above
+
+// Subadmin managed products endpoint
+router.get('/subadmin/products-managed', async (req, res) => {
+  try {
+    // Find products where managerId matches the subadmin's user ID
+    const products = await Product.find({ managerId: req.user.id });
+    res.json(products);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Logout endpoint (client should just remove token, but respond OK)
+router.post('/logout', (req, res) => {
+  res.json({ message: 'Logged out successfully.' });
+});
+
+router.post('/admin/login', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ message: 'Username and password are required.' });
+  }
+  try {
+    const user = await User.findOne({ username, role: 'admin' });
+    if (!user) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
+    const isMatch = await require('bcrypt').compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+    const token = require('jsonwebtoken').sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    res.status(200).json({
+      token,
+      user: {
+        _id: user._id,
+        username: user.username,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message || 'Error logging in', error });
+  }
+});
 
 module.exports = router;

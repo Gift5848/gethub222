@@ -16,10 +16,16 @@ const LoginPage = () => {
     e.preventDefault();
     setError('');
     let endpoint = '/api/auth/login';
-    if (role === 'admin') endpoint = '/api/auth/admin/login';
-    if (role === 'subadmin') endpoint = '/api/auth/subadmin/login';
+    let payload = { ...form };
+    if (role === 'admin') {
+      endpoint = '/api/auth/admin/login';
+      payload = { username: form.username, password: form.password };
+    } else {
+      payload = { email: form.username, password: form.password };
+    }
+    if (role === 'subadmin') endpoint = '/api/auth/login';
     try {
-      const res = await axios.post(endpoint, form);
+      const res = await axios.post(endpoint, payload);
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('user', JSON.stringify(res.data.user));
       if (role === 'admin') navigate('/admin');
