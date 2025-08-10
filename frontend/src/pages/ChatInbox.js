@@ -4,7 +4,7 @@ import ChatModal from '../components/ChatModal';
 import { io } from 'socket.io-client';
 import '../styles/chat-inbox.css';
 
-const SOCKET_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000'; // Adjust if backend runs elsewhere
+const SOCKET_URL = process.env.REACT_APP_API_URL;
 
 const ChatInbox = () => {
   const [conversations, setConversations] = useState([]);
