@@ -25,7 +25,6 @@ import ShopRegister from './pages/ShopRegister'; // Import ShopRegister page
 import DeliveryOrderDetails from './pages/DeliveryOrderDetails'; // Import DeliveryOrderDetails page
 import ChatInbox from './pages/ChatInbox'; // Import ChatInbox page
 import PaymentSuccess from './pages/PaymentSuccess'; // Import PaymentSuccess page
-import LoginPage from './pages/LoginPage'; // Import LoginPage
 import './styles/main.css';
 
 // SlideBarModal component (no drag logic, just a visible bar)
@@ -188,7 +187,7 @@ function App() {
         <Route path="/orders" element={<RequireAuth><Orders /></RequireAuth>} />
         <Route path="/delivery-login" element={<DeliveryLogin />} />
         <Route path="/delivery" element={<ProtectedDeliveryDashboard />} />
-        <Route path="/login" element={<LoginPage />} />
+        <Route path="/login" element={<Auth />} />
         <Route path="/order-confirmation" element={
           <RequireOrderInfo>
             <OrderConfirmation />
