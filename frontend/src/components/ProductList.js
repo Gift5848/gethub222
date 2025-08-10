@@ -3,6 +3,8 @@ import axios from 'axios';
 import Header from './Header';
 import ChatModal from './ChatModal';
 
+const API_BASE = process.env.REACT_APP_API_URL;
+
 const ProductList = ({ filters = {}, searchTrigger, onAddToCart, onCartCountChange }) => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -36,7 +38,7 @@ const ProductList = ({ filters = {}, searchTrigger, onAddToCart, onCartCountChan
     if (filters.model) params.model = filters.model;
     if (filters.year) params.year = filters.year;
     if (filters.search) params.search = filters.search;
-    axios.get('/api/products', { params })
+    axios.get(`${API_BASE}/api/products`, { params })
       .then(res => setProducts(Array.isArray(res.data) ? res.data : []))
       .catch(err => setError('Failed to load products.'))
       .finally(() => setLoading(false));
@@ -260,7 +262,14 @@ const ProductList = ({ filters = {}, searchTrigger, onAddToCart, onCartCountChan
                             ? `${process.env.REACT_APP_API_URL}${product.image}`
                             : `${process.env.REACT_APP_API_URL}/uploads/${product.image}`
                         : '/default-product.png'
-                    } alt={product.name} loading="lazy" style={{ width: '100%', height: 110, objectFit: 'cover', borderTopLeftRadius: 0, borderTopRightRadius: 0, background: '#f8f8f8' }} />
+                    } alt={product.name} loading="lazy" style={{ width: '100%', height: 110, objectFit: 'cover', borderTopLeftRadius: 0, borderTopRightRadius: 0, background: '#f8f8f8' }}
+                      onError={e => {
+                        // Fallback for .jfif, .png, .jpg, .jpeg
+                        if (!e.target.src.endsWith('.png')) {
+                          e.target.src = '/default-product.png';
+                        }
+                      }}
+                    />
                   )}
                 </div>
                 <div className="product-info" style={{ padding: '12px 12px 10px', flex: 1, display: 'flex', flexDirection: 'column' }}>

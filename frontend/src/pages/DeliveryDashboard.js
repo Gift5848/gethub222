@@ -9,9 +9,6 @@ import DeliveryMap from '../components/DeliveryMap';
 import ProofOfDeliveryModal from '../components/ProofOfDeliveryModal';
 import notificationSound from '../assets/notification.mp3';
 import styles from './DeliveryDashboard.module.css';
-import { Loader } from '@googlemaps/js-api-loader';
-
-const GOOGLE_MAPS_API_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY || '';
 
 const DeliveryDashboard = () => {
   const [orders, setOrders] = useState([]);
@@ -189,20 +186,9 @@ const DeliveryDashboard = () => {
 
   // --- Fallback geocoding for orders with missing coordinates ---
   const geocodeAddress = async (address) => {
-    if (!address || !GOOGLE_MAPS_API_KEY) return null;
-    const loader = new Loader({ apiKey: GOOGLE_MAPS_API_KEY, version: 'weekly' });
-    await loader.load();
-    const geocoder = new window.google.maps.Geocoder();
-    return new Promise((resolve) => {
-      geocoder.geocode({ address }, (results, status) => {
-        if (status === 'OK' && results[0]) {
-          const { lat, lng } = results[0].geometry.location;
-          resolve({ lat: lat(), lng: lng() });
-        } else {
-          resolve(null);
-        }
-      });
-    });
+    if (!address) return null;
+    // Geocoding disabled: migration to OpenStreetMap/Leaflet
+    return null;
   };
 
   // --- Real-time map update: re-geocode on orders update ---

@@ -19,25 +19,6 @@ const CheckoutPage = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Load Google Maps script only if not already loaded
-    if (!window.google || !window.google.maps) {
-      if (!document.getElementById('google-maps-script')) {
-        const script = document.createElement('script');
-        script.id = 'google-maps-script';
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}`;
-        script.async = true;
-        script.onload = () => setMapLoaded(true);
-        document.body.appendChild(script);
-      } else {
-        // Script tag exists but google not loaded yet
-        document.getElementById('google-maps-script').onload = () => setMapLoaded(true);
-      }
-    } else {
-      setMapLoaded(true);
-    }
-  }, []);
-
-  useEffect(() => {
     if (mapLoaded) {
       // Get user's current location
       navigator.geolocation.getCurrentPosition(

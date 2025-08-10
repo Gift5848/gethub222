@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
+const API_BASE = process.env.REACT_APP_API_URL;
+
 const Cart = ({ onClose, onCheckout, onCartCountChange }) => {
   const user = JSON.parse(localStorage.getItem('user'));
   const userId = user?._id || 'guest';
@@ -17,7 +19,7 @@ const Cart = ({ onClose, onCheckout, onCartCountChange }) => {
         const item = storedCart[i];
         if (!item.sellerId || !item.seller) {
           try {
-            const res = await axios.get(`/api/products/${item._id}`);
+            const res = await axios.get(`${API_BASE}/api/products/${item._id}`);
             const productDetails = res.data;
             const sellerId = productDetails.seller?._id || productDetails.seller || productDetails.owner?._id || productDetails.owner || '';
             storedCart[i] = { ...item, sellerId, seller: sellerId };

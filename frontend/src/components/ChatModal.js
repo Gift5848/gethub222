@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = 'https://salty-shore-60443-1ab4fdf8d6bb.herokuapp.com'; // Adjust if backend runs elsewhere
+const SOCKET_URL = process.env.REACT_APP_API_URL; // Adjust if backend runs elsewhere
 
 const ChatModal = ({ open, onClose, userId, peerId, productId }) => {
   const [messages, setMessages] = useState([]);
@@ -215,9 +215,9 @@ const ChatModal = ({ open, onClose, userId, peerId, productId }) => {
                     {msg.file && msg.file.url && (
                       <div style={{marginTop:4}}>
                         {msg.file.url.match(/\.(jpg|jpeg|png|gif)$/i) ? (
-                          <img src={`https://salty-shore-60443-1ab4fdf8d6bb.herokuapp.com${msg.file.url}`} alt="file" style={{maxWidth:120, borderRadius:8}} />
+                          <img src={`${process.env.REACT_APP_API_URL}${msg.file.url}`} alt="file" style={{maxWidth:120, borderRadius:8}} />
                         ) : (
-                          <a href={`https://salty-shore-60443-1ab4fdf8d6bb.herokuapp.com${msg.file.url}`} target="_blank" rel="noopener noreferrer">Download File</a>
+                          <a href={`${process.env.REACT_APP_API_URL}${msg.file.url}`} target="_blank" rel="noopener noreferrer">Download File</a>
                         )}
                       </div>
                     )}

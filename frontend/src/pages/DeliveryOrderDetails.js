@@ -28,16 +28,7 @@ const DeliveryOrderDetails = ({ order }) => {
     const dist = getDistanceFromLatLonInKm(shopLat, shopLng, buyerLat, buyerLng);
     setDistance(dist);
     setPrice(Math.ceil(dist * PER_KM_RATE));
-    // Load Google Maps
-    if (!window.google) {
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}`;
-      script.async = true;
-      script.onload = () => renderMap(shopLat, shopLng, buyerLat, buyerLng);
-      document.body.appendChild(script);
-    } else {
-      renderMap(shopLat, shopLng, buyerLat, buyerLng);
-    }
+    renderMap(shopLat, shopLng, buyerLat, buyerLng);
     // eslint-disable-next-line
   }, [order]);
 
