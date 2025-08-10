@@ -51,7 +51,7 @@ const LoginPage = () => {
         <input
           type="text"
           name="username"
-          placeholder="Username"
+          placeholder={role === 'admin' ? 'Username' : 'Email'}
           value={form.username}
           onChange={handleChange}
           required
